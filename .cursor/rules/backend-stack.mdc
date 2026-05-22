@@ -1,0 +1,50 @@
+---
+description: 后端 Spring Modulith 编码规范
+globs: backend/**/*.{java,kt,xml,properties,yml,yaml}
+alwaysApply: false
+---
+
+# 后端编码规范
+
+## 技术栈基线
+
+- **Java 21** + **Spring Boot 3**
+- **Spring Modulith** 进行模块化拆分
+- **PostgreSQL**（与前端共用 `compose.yaml` 中的实例）
+- **Redis** 用于缓存
+- **Maven Wrapper** (`./mvnw`)
+- **JUnit 5** + Spring Test
+
+## 模块组织（Spring Modulith）
+
+按业务边界划分包，每个模块包内推荐结构：
+
+```text
+com.example.demo.<module>
+├── XxxController.java            // 对外 HTTP 接口
+├── XxxApplicationService.java    // 应用服务（编排）
+├── Xxx.java                      // 聚合根 / 实体
+├── XxxRepository.java            // Spring Data Repository
+├── XxxCreatedEvent.java          // 领域事件
+└── internal                      // 模块私有，不允许跨模块引用
+    ├── XxxDomainService.java
+    └── XxxValidator.java
+```
+
+**关键约束：**
+
+- 模块之间只能依赖对方根包暴露的类型；不要 `import` 别人的 `internal.*`。
+- 跨模块通信优先用 **领域事件**（`ApplicationEventPublisher` + `@ApplicationModuleListener`），避免直接调用其他模块的 Service。
+- 数据库表名 / 字段使用 snake_case。
+
+## 测试要求
+
+- 每个 Service、Controller、Repository 都需对应的 JUnit 测试类。
+- 命名约定：单元测试 `XxxTest`，集成测试 `XxxIT`。
+- 模块边界校验建议至少有一个 `ApplicationModules.of(...).verify()` 测试。
+- 提交前 `./mvnw verify` 必须通过。
+
+## 配置约定
+
+- 默认 profile 走本地 `compose.yaml`；生产配置放 `application-prod.properties`。
+- 敏感信息（数据库密码、API Key）**不写入仓库**，通过环境变量或外部配置注入。

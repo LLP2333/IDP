@@ -1,0 +1,47 @@
+---
+description: 新增/修改功能必须同步补充测试用例并更新相关文档
+alwaysApply: true
+---
+
+# 新增功能工作流
+
+每次新增或修改"功能"（公开 API、UI 组件、Service、tRPC 路由、工具函数、数据库 schema、配置等），都必须同时完成以下三件事，缺一不可。
+
+## 1. 编写/更新测试用例
+
+- **前端**：使用 `vitest`，测试文件与被测代码同目录，命名 `*.test.ts` / `*.test.tsx`。
+  - 工具函数：纯逻辑断言。
+  - 组件：`@testing-library/react` + `@testing-library/jest-dom`。
+  - tRPC 路由：使用 `appRouter.createCaller()` 编写集成测试。
+  - 完成后跑通：`pnpm test`。
+- **后端**：使用 JUnit 5 + Spring Test，测试类放在 `src/test/java` 对应包下，命名 `XxxTest` / `XxxIT`。
+  - 完成后跑通：`./mvnw verify`。
+
+## 2. 更新文档
+
+| 变更类型 | 需要同步的文件 |
+| --- | --- |
+| 项目结构 / 启动方式 | `readme.md`、`frontend/readme.md`、`backend/readme.md` |
+| 前端模块 / 公共组件 | `frontend/readme.md` 对应章节 |
+| 后端模块 / 对外接口 | `backend/readme.md` + `docs/` 下接口/设计文档 |
+| 环境变量 | `frontend/.env.example`（前端）、`backend/src/main/resources/application*.properties`（后端）+ 对应 README |
+| 数据库 schema | `frontend/src/server/db/schema.ts` + 生成迁移 (`pnpm db:generate`) + README 数据模型说明 |
+
+## 3. 自检命令
+
+提交前必须本地通过：
+
+```bash
+# 前端
+cd frontend && pnpm check && pnpm test
+
+# 后端
+cd backend && ./mvnw verify
+```
+
+## 反例（不允许）
+
+- ❌ 只改实现，不写测试，理由是"逻辑很简单"。
+- ❌ 改了对外 API 签名却没更新 README/`docs/`。
+- ❌ 新增环境变量但只改 `.env`，没改 `.env.example` 和 `src/env.js`。
+- ❌ 改 Drizzle schema 但没运行 `pnpm db:generate` 生成迁移。

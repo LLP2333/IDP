@@ -1,0 +1,55 @@
+# 完全禁止 Cursor 读取/索引的内容
+# 这里列出的文件即使被 @ 引用也不会被读取
+
+# ===== 密钥 / 凭证 =====
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+**/*.p12
+**/*.keystore
+**/secrets/**
+**/credentials*.json
+
+# ===== 构建产物 =====
+**/node_modules/
+**/.next/
+**/out/
+**/dist/
+**/build/
+backend/target/
+
+# ===== 缓存 =====
+**/.turbo/
+**/.cache/
+**/.pnpm-store/
+**/.eslintcache
+**/.parcel-cache/
+
+# ===== 测试 / 覆盖率 报告 =====
+**/coverage/
+**/.nyc_output/
+
+# ===== 数据库本地文件 =====
+**/*.sqlite
+**/*.sqlite-journal
+**/*.db
+
+# ===== IDE / 系统 =====
+.idea/
+.vscode/
+**/.DS_Store
+
+# ===== 日志 =====
+**/*.log
+**/logs/
+
+# ===== 大文件 / 二进制 =====
+**/*.zip
+**/*.tar
+**/*.tar.gz
+**/*.tgz
+**/*.7z
+**/*.rar
+**/*.iso

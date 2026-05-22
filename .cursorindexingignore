@@ -1,0 +1,22 @@
+# 跳过 Cursor 索引（@ 引用时仍可读取，但不会出现在向量检索中）
+# 适合体积大或对语义检索价值低的内容
+
+# Lock 文件
+**/pnpm-lock.yaml
+**/package-lock.json
+**/yarn.lock
+
+# 自动生成的产物
+**/.next/**
+**/node_modules/**
+backend/target/**
+
+# 文档/媒体大资源
+**/public/**/*.{png,jpg,jpeg,gif,svg,webp,avif,ico,mp4,mov,webm,pdf}
+docs/**/*.{png,jpg,jpeg,gif,svg,webp,avif,pdf}
+
+# 迁移脚本（人类可读，但通常无需索引）
+**/drizzle/**/*.sql
+
+# 字体
+**/*.{woff,woff2,ttf,otf,eot}

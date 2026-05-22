@@ -1,0 +1,32 @@
+---
+description: IDP 项目总览与代码组织约定
+alwaysApply: true
+---
+
+# IDP 项目总览
+
+**IDP (Interactive Design Platform)** 是基于参数化设计模型的平台，支持 AI 驱动的参数计算。
+
+## 顶层结构
+
+```text
+idp/
+├── backend/      # Spring Boot + Spring Modulith
+├── frontend/     # T3 Stack (Next.js 15 + TS + tRPC + Drizzle)
+├── docker/       # Docker 配置
+├── docs/         # 设计/接口文档
+├── compose.yaml  # 本地依赖：PostgreSQL + Redis
+└── readme.md
+```
+
+## 通用约定
+
+- **沟通语言**：所有与用户的交互、注释、文档、commit message 默认使用 **中文**。
+- **包管理**：前端固定使用 **pnpm 10**（见 `frontend/package.json` 中的 `packageManager`）；后端使用 Maven Wrapper `./mvnw`。
+- **数据库**：本地通过 `docker compose up -d` 启动 PostgreSQL（5432）与 Redis（6379）。前后端共用同一个 PostgreSQL 实例。
+- **跨模块通信**：前端通过 `NEXT_PUBLIC_API_BASE_URL` 调用后端 Spring Boot 服务。
+
+## 提交规范
+
+- 新增功能必须遵循 `feature-workflow.mdc`：测试 + 文档 + 自检。
+- Commit message 简洁且使用中文，按动词开头：`新增 / 修复 / 重构 / 文档 / 测试`。
