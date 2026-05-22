@@ -1,6 +1,6 @@
 # IDP 项目
 
-Interactive Design Platform，简称 **IDP**，是一个基于参数化设计模型的平台，支持 AI 驱动的参数计算。
+IDP是一个通用的企业级的后台管理系统.
 
 ---
 
