@@ -1,6 +1,8 @@
 package com.qvqw.idp.option.internal;
 
 import com.qvqw.idp.common.exception.BusinessException;
+import com.qvqw.idp.common.security.UserContext;
+import com.qvqw.idp.common.security.UserContextHolder;
 import com.qvqw.idp.option.OptionCategory;
 import com.qvqw.idp.option.OptionService;
 import com.qvqw.idp.option.PasswordPolicy;
@@ -19,8 +21,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,6 +47,32 @@ public class OptionServiceImpl implements OptionService {
     /** Redis key 前缀，更新时按此前缀清理。 */
     static final String CACHE_PREFIX = "idp:option:";
 
+    /**
+     * {@link OptionCategory} → 查询所需的权限码映射。
+     *
+     * <p>用于在 service 层做 fine-grained 二次鉴权：避免 Controller 上的粗粒度 OR 鉴权
+     * 让 “只有 LOGIN 查询权” 的用户能跨类别看到 SITE / PASSWORD 参数。</p>
+     */
+    private static final Map<OptionCategory, String> READ_PERM;
+
+    /**
+     * {@link OptionCategory} → 修改所需的权限码映射。
+     *
+     * <p>用于 service 层 fine-grained 二次鉴权，防止跨类别越权改参数。</p>
+     */
+    private static final Map<OptionCategory, String> WRITE_PERM;
+
+    static {
+        READ_PERM = new EnumMap<>(OptionCategory.class);
+        READ_PERM.put(OptionCategory.SITE, "system:siteConfig:get");
+        READ_PERM.put(OptionCategory.PASSWORD, "system:securityConfig:get");
+        READ_PERM.put(OptionCategory.LOGIN, "system:loginConfig:get");
+        WRITE_PERM = new EnumMap<>(OptionCategory.class);
+        WRITE_PERM.put(OptionCategory.SITE, "system:siteConfig:update");
+        WRITE_PERM.put(OptionCategory.PASSWORD, "system:securityConfig:update");
+        WRITE_PERM.put(OptionCategory.LOGIN, "system:loginConfig:update");
+    }
+
     private final OptionRepository optionRepository;
     private final StringRedisTemplate redisTemplate;
 
@@ -52,12 +82,23 @@ public class OptionServiceImpl implements OptionService {
         this.redisTemplate = redisTemplate;
     }
 
+    /**
+     * 列表查询参数。
+     *
+     * <p>鉴权策略（Controller 层粗粒度 OR 之外的 fine-grained 控制）：</p>
+     * <ul>
+     *   <li>显式指定 {@code category}：缺对应 {@code :get} 权限直接抛 {@code 403}；</li>
+     *   <li>未指定类别（全量 / 按 codes）：返回值按 category 逐条过滤，只回吐用户有权读的项。</li>
+     * </ul>
+     */
     @Override
     public List<OptionResp> list(OptionQuery query) {
+        UserContext ctx = UserContextHolder.get();
         List<SystemOption> list;
         OptionCategory category = query == null ? null : query.getCategory();
         List<String> codes = query == null ? null : query.getCodes();
         if (category != null) {
+            requireAccess(ctx, category, READ_PERM, "查询");
             list = optionRepository.findByCategoryOrderByIdAsc(category);
             if (codes != null && !codes.isEmpty()) {
                 Set<String> codeSet = new HashSet<>(codes);
@@ -68,7 +109,10 @@ public class OptionServiceImpl implements OptionService {
         } else {
             list = optionRepository.findAll();
         }
-        return list.stream().map(this::toResp).toList();
+        return list.stream()
+                .filter(o -> canAccess(ctx, o.getCategory(), READ_PERM))
+                .map(this::toResp)
+                .toList();
     }
 
     @Override
@@ -92,8 +136,12 @@ public class OptionServiceImpl implements OptionService {
      *   <li>跨字段约束校验（如警告天数 &lt; 有效期）。</li>
      * </ol>
      *
+     * <p>鉴权策略：除 Controller 层粗粒度 OR 校验外，service 内对每一条参数按其
+     * {@link OptionCategory} 二次校验对应的 {@code :update} 权限码；
+     * 即使请求里混杂多个类别，任一项越权也会整体 {@code 403} 回滚。</p>
+     *
      * @param reqs 待更新项列表
-     * @throws BusinessException 校验失败 / 参数不存在
+     * @throws BusinessException 校验失败 / 参数不存在 / 类别越权
      */
     @Override
     @Transactional
@@ -101,6 +149,7 @@ public class OptionServiceImpl implements OptionService {
         if (reqs == null || reqs.isEmpty()) {
             return;
         }
+        UserContext ctx = UserContextHolder.get();
         Map<Long, SystemOption> existing = optionRepository
                 .findAllById(reqs.stream().map(OptionReq::getId).toList())
                 .stream()
@@ -114,6 +163,7 @@ public class OptionServiceImpl implements OptionService {
                 throw new BusinessException("参数 ID 与 code 不匹配: id=%d expected=%s got=%s"
                         .formatted(req.getId(), opt.getCode(), req.getCode()));
             }
+            requireAccess(ctx, opt.getCategory(), WRITE_PERM, "修改");
         }
         // 收集密码策略类的整组变更，做范围 + 跨字段校验
         Map<String, String> passwordSnapshot = reqs.stream()
@@ -144,8 +194,11 @@ public class OptionServiceImpl implements OptionService {
     /**
      * 重置 value 为 null（业务侧访问时会自动回落到 default_value）。
      *
+     * <p>鉴权与 {@link #update(List)} 同源：按 category 校验对应的 {@code :update} 权限。
+     * 按 codes 重置时，先反查每个 code 所属的类别，逐类别校验权限码，命中越权立即整体 {@code 403}。</p>
+     *
      * @param req 类别 / code 重置范围
-     * @throws BusinessException 同时不提供 category 与 codes
+     * @throws BusinessException 同时不提供 category 与 codes / 类别越权
      */
     @Override
     @Transactional
@@ -153,9 +206,28 @@ public class OptionServiceImpl implements OptionService {
         if (req == null || (req.getCategory() == null && (req.getCodes() == null || req.getCodes().isEmpty()))) {
             throw new BusinessException("请指定类别或键列表");
         }
+        UserContext ctx = UserContextHolder.get();
         if (req.getCategory() != null) {
+            requireAccess(ctx, req.getCategory(), WRITE_PERM, "重置");
             optionRepository.resetByCategory(req.getCategory());
         } else {
+            // 反查每个 code 所属类别（不存在的 code 直接抛 400，避免静默忽略）
+            List<SystemOption> hits = optionRepository.findByCodeIn(req.getCodes());
+            if (hits.size() != req.getCodes().size()) {
+                Set<String> hitCodes = hits.stream()
+                        .map(SystemOption::getCode)
+                        .collect(Collectors.toSet());
+                String missing = req.getCodes().stream()
+                        .filter(c -> !hitCodes.contains(c))
+                        .collect(Collectors.joining(","));
+                throw new BusinessException("参数不存在: " + missing);
+            }
+            Set<OptionCategory> categories = hits.stream()
+                    .map(SystemOption::getCategory)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            for (OptionCategory cat : categories) {
+                requireAccess(ctx, cat, WRITE_PERM, "重置");
+            }
             optionRepository.resetByCodes(req.getCodes());
         }
         evictCache();
@@ -293,6 +365,59 @@ public class OptionServiceImpl implements OptionService {
         } catch (Exception ex) {
             return null;
         }
+    }
+
+    /**
+     * 判断当前用户能否访问指定类别。
+     *
+     * <p>策略：</p>
+     * <ul>
+     *   <li>{@link UserContext} 为空（如内部服务调用、Seeder、定时任务）→ 直通；</li>
+     *   <li>{@code admin} 角色 → 直通（与 {@link com.qvqw.idp.menu.internal.MenuAspect} 行为一致）；</li>
+     *   <li>否则要求 {@code permMap.get(category)} 在权限码集合中。</li>
+     * </ul>
+     *
+     * @param ctx      当前用户上下文（{@code null} 表示内部调用）
+     * @param category 目标参数类别
+     * @param permMap  类别 → 权限码映射（{@link #READ_PERM} 或 {@link #WRITE_PERM}）
+     * @return 有权限返回 {@code true}
+     */
+    private static boolean canAccess(UserContext ctx, OptionCategory category,
+                                     Map<OptionCategory, String> permMap) {
+        if (ctx == null) {
+            return true;
+        }
+        if (ctx.hasRole("admin")) {
+            return true;
+        }
+        String code = permMap.get(category);
+        return code != null && ctx.getPermissionCodes().contains(code);
+    }
+
+    /**
+     * 没有权限就抛 {@code 403}。
+     *
+     * @param ctx       当前用户上下文
+     * @param category  目标参数类别
+     * @param permMap   类别 → 权限码映射
+     * @param operation 操作动词（“查询” / “修改” / “重置”），用于错误提示
+     * @throws BusinessException {@code 403} 当用户缺少对应权限
+     */
+    private static void requireAccess(UserContext ctx, OptionCategory category,
+                                      Map<OptionCategory, String> permMap, String operation) {
+        if (!canAccess(ctx, category, permMap)) {
+            throw new BusinessException(403,
+                    "无权限" + operation + categoryLabel(category) + "类参数");
+        }
+    }
+
+    /** {@link OptionCategory} 的中文标签（仅用于错误提示）。 */
+    private static String categoryLabel(OptionCategory category) {
+        return switch (category) {
+            case SITE -> "网站配置";
+            case PASSWORD -> "安全配置";
+            case LOGIN -> "登录配置";
+        };
     }
 
     /** 测试可见的辅助构造（避免暴露 setter）。 */

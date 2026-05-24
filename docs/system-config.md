@@ -70,14 +70,36 @@
 
 | 方法 | 路径 | 说明 | 鉴权 |
 | --- | --- | --- | --- |
-| GET | `/system/option` | 列表（按 `category` / `codes` 过滤） | `system:siteConfig:get` / `securityConfig:get` / `loginConfig:get` 任一 |
-| PUT | `/system/option` | 批量更新 | `system:siteConfig:update` / `securityConfig:update` / `loginConfig:update` 任一 |
+| GET | `/system/option` | 列表（按 `category` / `codes` 过滤） | `system:siteConfig:get` / `securityConfig:get` / `loginConfig:get` 任一（粗） + service 层按 category 细 |
+| PUT | `/system/option` | 批量更新 | `system:siteConfig:update` / `securityConfig:update` / `loginConfig:update` 任一（粗） + service 层按 category 细 |
 | PATCH | `/system/option/value` | 重置为默认值 | 同上 |
 | POST | `/system/option/image` | 上传 base64 图片 | `system:siteConfig:update` |
 | GET | `/system/option/site` | 公开网站配置 | 白名单 |
 | GET | `/system/option/login` | 公开登录配置 | 白名单 |
 
 公开接口的字段经过白名单过滤，绝不会泄露密码策略等敏感配置；任何写接口均会清空 Redis 缓存。
+
+### 3.1 两层鉴权（避免跨类别越权）
+
+Controller 上的 `@HasPermission` 是 **粗粒度 OR 门禁**：只要拥有任一 `:get` 就能进 list、任一 `:update` 就能进 update / reset。
+这层只能挡掉 “完全没有任何配置权限” 的用户，**不能**阻止 “只有 LOGIN update” 的用户偷偷改 SITE / PASSWORD 参数。
+
+因此 `OptionServiceImpl.list / update / resetValue` 内部再做一次 **fine-grained 按 category 鉴权**：
+
+| OptionCategory | 查询权限码 | 修改权限码 |
+| --- | --- | --- |
+| SITE | `system:siteConfig:get` | `system:siteConfig:update` |
+| PASSWORD | `system:securityConfig:get` | `system:securityConfig:update` |
+| LOGIN | `system:loginConfig:get` | `system:loginConfig:update` |
+
+规则：
+
+- `list(?category=X)`：缺 `READ_PERM[X]` 直接 **403**；不指定 category 时返回值会按 category 自动过滤掉用户无权读的项；
+- `update(reqs)`：每条参数按其 `OptionCategory` 校验对应 `WRITE_PERM`，任一项越权整批 **403** 回滚；
+- `resetValue`：按 category 重置 → 直接校验对应 `WRITE_PERM`；按 codes 重置 → 先反查 codes 所属类别，逐类别校验，命中越权立即 **403**；
+- `admin` 角色直通；`UserContext` 为空（内部服务调用 / 定时任务）也直通（与公开接口无关，公开接口走 `getByCategory` / `getValue` 不经此校验）。
+
+所以单给一个角色 `system:loginConfig:update`，他**只能**改 LOGIN 类参数；想越界改 SITE / PASSWORD 会 403。
 
 ---
 
