@@ -1,6 +1,6 @@
 package com.qvqw.idp.auth.internal;
 
-import com.qvqw.idp.auth.UserContextHolder;
+import com.qvqw.idp.common.security.UserContextHolder;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;

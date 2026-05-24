@@ -64,6 +64,14 @@ public class User extends BaseEntity {
     @Column(name = "pwd_reset_at")
     private LocalDateTime pwdResetAt;
 
+    /** 当前累计的连续登录失败次数，登录成功或锁定到期后清零。 */
+    @Column(name = "pwd_error_count", nullable = false)
+    private Integer pwdErrorCount = 0;
+
+    /** 账号锁定到期时间；为空或早于当前时间表示未锁定。 */
+    @Column(name = "pwd_locked_until")
+    private LocalDateTime pwdLockedUntil;
+
     public Long getId() {
         return id;
     }
@@ -158,5 +166,21 @@ public class User extends BaseEntity {
 
     public void setPwdResetAt(LocalDateTime pwdResetAt) {
         this.pwdResetAt = pwdResetAt;
+    }
+
+    public Integer getPwdErrorCount() {
+        return pwdErrorCount;
+    }
+
+    public void setPwdErrorCount(Integer pwdErrorCount) {
+        this.pwdErrorCount = pwdErrorCount;
+    }
+
+    public LocalDateTime getPwdLockedUntil() {
+        return pwdLockedUntil;
+    }
+
+    public void setPwdLockedUntil(LocalDateTime pwdLockedUntil) {
+        this.pwdLockedUntil = pwdLockedUntil;
     }
 }

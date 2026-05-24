@@ -73,9 +73,11 @@ sequenceDiagram
 
 | 方法 | 路径 | 鉴权 | 说明 |
 | --- | --- | --- | --- |
-| POST | `/auth/login` | 否 | body：`{ username, password }`，返回 `{ token, expires }` |
+| POST | `/auth/login` | 否 | body：`{ username, password, captchaId?, captcha? }`，返回 `{ token, expires, passwordExpired?, passwordWarning?, passwordExpiresInDays? }` |
 | POST | `/auth/logout` | 是 | 解析 `Authorization` 中的 jti 并删除 Redis 记录 |
-| GET | `/auth/user/info` | 是 | 返回当前登录用户的基础信息与角色编码列表 |
+| GET | `/auth/user/info` | 是 | 返回当前登录用户基础信息、角色编码列表与按钮权限码列表 |
+| GET | `/auth/captcha` | 否 | 返回 `{ captchaId, image, expiresIn }`，`image` 是 SVG 的 Data URL |
+| POST | `/system/user/password` | 是 | 当前用户自助改密：body `{ oldPassword, newPassword }`；走 `PasswordValidator` 校验 + 写历史 |
 
 成功响应统一为：
 
@@ -94,12 +96,37 @@ sequenceDiagram
 
 `SecurityConfig` 显式放行以下路径，无需 JWT：
 
-- `/auth/login`、`/auth/logout`
+- `/auth/login`、`/auth/logout`、`/auth/captcha`
+- `/system/option/site`、`/system/option/login`（登录页公开接口）
 - `/error`
 - Swagger / OpenAPI: `/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`
 - Spring Boot Actuator: `/actuator/**`
 
 其余请求一律要求合法 JWT，否则返回 `401`。
+
+## 登录可选增强
+
+### 1. 图形验证码（可热开关）
+
+- 是否开启由系统配置 `LOGIN_CAPTCHA_ENABLED` 控制，默认 `0` 关闭。
+- 前端登录页加载时调用 `GET /system/option/login` 拿到开关，若开启则调用 `GET /auth/captcha`：
+  - 后端生成 4 位字母数字答案，存 Redis `idp:auth:captcha:<uuid>`，TTL 2 分钟；
+  - 返回 SVG Data URL；
+- 登录时把 `captchaId + captcha` 一并 POST，后端命中 Redis 即消费（一次性）。
+
+### 2. 登录失败锁定
+
+- 失败 N 次（`PASSWORD_ERROR_LOCK_COUNT`）后写入用户 `pwd_locked_until = now + M 分钟` (`PASSWORD_ERROR_LOCK_MINUTES`)。
+- 锁定期内任何登录请求直接 400 “账号已锁定，请 X 分钟后再试”。
+- 登录成功会重置 `pwd_error_count` 与 `pwd_locked_until`。
+
+### 3. 密码到期 / 预警
+
+- 后端在登录成功响应中根据 `PASSWORD_EXPIRATION_DAYS` 与 `pwd_reset_at` 计算：
+  - `passwordExpired=true`：前端强制弹改密页面；
+  - `passwordWarning=true` + `passwordExpiresInDays=N`：前端弹 toast 提示。
+
+详细参数语义见 [`docs/system-config.md`](system-config.md)。
 
 ## 默认账号
 

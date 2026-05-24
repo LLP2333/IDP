@@ -1,21 +1,47 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, ShieldCheck, Users } from "lucide-react";
+import { KeyRound, LogOut, Settings, ShieldCheck, ShieldHalf, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
+import { SiteFooter } from "~/components/site-footer";
 import { Button } from "~/components/ui/button";
 import { getUserInfo, logout } from "~/lib/api/auth";
+import { usePermission } from "~/lib/hooks/use-permission";
+import { useSiteConfig } from "~/lib/hooks/use-site-config";
 import { useAuthStore } from "~/lib/store/auth-store";
 import { cn } from "~/lib/utils";
 
-const NAV_ITEMS = [
-  { href: "/admin", label: "概览", icon: null },
-  { href: "/admin/system/user", label: "用户管理", icon: Users },
-  { href: "/admin/system/role", label: "角色管理", icon: ShieldCheck },
+/**
+ * 侧边栏导航项定义。
+ *
+ * 每个 item 可声明所需权限码集合：admin 直通，普通用户需拥有任一权限码才能看见。
+ * 空数组表示无需权限（如 “概览”）。
+ */
+const NAV_ITEMS: Array<{
+  href: string;
+  label: string;
+  icon: typeof Users | null;
+  requires: string[];
+}> = [
+  { href: "/admin", label: "概览", icon: null, requires: [] },
+  { href: "/admin/system/user", label: "用户管理", icon: Users, requires: ["system:user:list"] },
+  { href: "/admin/system/role", label: "角色管理", icon: ShieldCheck, requires: ["system:role:list"] },
+  {
+    href: "/admin/system/permission",
+    label: "权限管理",
+    icon: ShieldHalf,
+    requires: ["system:permission:list"],
+  },
+  {
+    href: "/admin/system/config",
+    label: "系统配置",
+    icon: Settings,
+    requires: ["system:siteConfig:get", "system:securityConfig:get", "system:loginConfig:get"],
+  },
 ];
 
 /**
@@ -51,6 +77,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (userQuery.data) setUser(userQuery.data);
   }, [userQuery.data, setUser]);
 
+  const { hasAnyPermission } = usePermission();
+  const { data: site } = useSiteConfig();
+  const siteTitle = site?.title?.trim() ? site.title : "IDP 管理系统";
+  const siteSubtitle = site?.description?.trim() ? site.description : "企业级后台";
+  const siteLogo = site?.logo ?? null;
+
   if (!hydrated || !token) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-zinc-500">
@@ -78,11 +110,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="flex min-h-screen bg-zinc-50">
       <aside className="flex w-56 flex-col border-r border-zinc-200 bg-white">
         <div className="border-b border-zinc-200 px-5 py-4">
-          <h1 className="text-base font-bold text-zinc-900">IDP 管理系统</h1>
-          <p className="text-xs text-zinc-400">企业级后台</p>
+          <div className="flex items-center gap-2">
+            {siteLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={siteLogo}
+                alt={siteTitle}
+                className="h-6 w-6 rounded object-contain"
+              />
+            ) : null}
+            <h1 className="truncate text-base font-bold text-zinc-900" title={siteTitle}>
+              {siteTitle}
+            </h1>
+          </div>
+          <p className="mt-0.5 truncate text-xs text-zinc-400" title={siteSubtitle}>
+            {siteSubtitle}
+          </p>
         </div>
         <nav className="flex-1 px-2 py-3 text-sm">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.filter((item) => hasAnyPermission(item.requires)).map((item) => {
             const active =
               item.href === "/admin"
                 ? pathname === "/admin"
@@ -104,6 +150,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </Link>
             );
           })}
+          <Link
+            href="/admin/profile/password"
+            className={cn(
+              "mb-1 flex items-center gap-2 rounded-md px-3 py-2 transition-colors",
+              pathname.startsWith("/admin/profile/password")
+                ? "bg-blue-50 text-blue-700"
+                : "text-zinc-600 hover:bg-zinc-100",
+            )}
+          >
+            <KeyRound size={16} />
+            修改密码
+          </Link>
         </nav>
       </aside>
 
@@ -130,6 +188,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
         <main className="flex-1 overflow-auto p-6">{children}</main>
+        <SiteFooter className="border-t border-zinc-200 bg-white" />
       </div>
     </div>
   );

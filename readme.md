@@ -77,9 +77,11 @@ pnpm dev
 
 | 模块 | 说明 | 文档 |
 | --- | --- | --- |
-| 认证 | 账号密码登录、JWT 颁发/校验、登出 | [`docs/auth.md`](docs/auth.md) |
-| 用户管理 | 用户 CRUD、分配角色、重置密码 | [`docs/user-role.md`](docs/user-role.md) |
-| 角色管理 | 角色 CRUD、按 code 唯一约束 | [`docs/user-role.md`](docs/user-role.md) |
+| 认证 | 账号密码登录、JWT 颁发/校验、登出、验证码、登录锁定、密码到期提醒 | [`docs/auth.md`](docs/auth.md) |
+| 用户管理 | 用户 CRUD、分配角色、重置密码、自助改密 | [`docs/user-role.md`](docs/user-role.md) |
+| 角色管理 | 角色 CRUD、按 code 唯一约束、分配权限 | [`docs/user-role.md`](docs/user-role.md) |
+| 权限管理 | 树形权限码（菜单 / 按钮）、`@HasPermission` AOP、前端 PermissionGuard | [`docs/permission.md`](docs/permission.md) |
+| 系统配置 | 网站配置 / 安全（密码策略）/ 登录（验证码） | [`docs/system-config.md`](docs/system-config.md) |
 
 ---
 

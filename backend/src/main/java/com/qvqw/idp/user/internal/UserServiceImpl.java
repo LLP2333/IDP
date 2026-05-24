@@ -1,13 +1,18 @@
 package com.qvqw.idp.user.internal;
 
+import com.qvqw.idp.common.cache.AuthCacheEvictor;
 import com.qvqw.idp.common.api.PageResp;
 import com.qvqw.idp.common.exception.BusinessException;
+import com.qvqw.idp.option.OptionService;
+import com.qvqw.idp.option.PasswordPolicy;
 import com.qvqw.idp.role.RoleService;
 import com.qvqw.idp.role.model.resp.RoleResp;
 import com.qvqw.idp.user.User;
+import com.qvqw.idp.user.UserPasswordHistory;
 import com.qvqw.idp.user.UserService;
 import com.qvqw.idp.user.model.query.UserQuery;
 import com.qvqw.idp.user.model.req.UserCreateReq;
+import com.qvqw.idp.user.model.req.UserPasswordChangeReq;
 import com.qvqw.idp.user.model.req.UserPasswordResetReq;
 import com.qvqw.idp.user.model.req.UserRoleUpdateReq;
 import com.qvqw.idp.user.model.req.UserUpdateReq;
@@ -42,13 +47,25 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final RoleService roleService;
     private final PasswordEncoder passwordEncoder;
+    private final UserPasswordHistoryRepository passwordHistoryRepository;
+    private final PasswordValidator passwordValidator;
+    private final OptionService optionService;
+    private final AuthCacheEvictor authCacheEvictor;
 
     public UserServiceImpl(UserRepository userRepository,
                            RoleService roleService,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder,
+                           UserPasswordHistoryRepository passwordHistoryRepository,
+                           PasswordValidator passwordValidator,
+                           OptionService optionService,
+                           AuthCacheEvictor authCacheEvictor) {
         this.userRepository = userRepository;
         this.roleService = roleService;
         this.passwordEncoder = passwordEncoder;
+        this.passwordHistoryRepository = passwordHistoryRepository;
+        this.passwordValidator = passwordValidator;
+        this.optionService = optionService;
+        this.authCacheEvictor = authCacheEvictor;
     }
 
     /**
@@ -128,6 +145,7 @@ public class UserServiceImpl implements UserService {
         if (req.getRoleIds() != null && !req.getRoleIds().isEmpty()) {
             roleService.ensureRolesExist(req.getRoleIds());
         }
+        passwordValidator.validateStrength(req.getPassword(), req.getUsername());
         User user = new User();
         user.setUsername(req.getUsername());
         user.setPassword(passwordEncoder.encode(req.getPassword()));
@@ -140,8 +158,10 @@ public class UserServiceImpl implements UserService {
         user.setIsSystem(false);
         user.setPwdResetAt(LocalDateTime.now());
         Long id = userRepository.save(user).getId();
+        passwordHistoryRepository.save(new UserPasswordHistory(id, user.getPassword()));
         if (req.getRoleIds() != null) {
             roleService.assignRoles(id, req.getRoleIds());
+            authCacheEvictor.evictUser(id);
         }
         return id;
     }
@@ -184,6 +204,7 @@ public class UserServiceImpl implements UserService {
         userRepository.save(user);
         if (req.getRoleIds() != null) {
             roleService.assignRoles(id, req.getRoleIds());
+            authCacheEvictor.evictUser(id);
         }
     }
 
@@ -210,6 +231,8 @@ public class UserServiceImpl implements UserService {
         }
         for (Long id : ids) {
             roleService.assignRoles(id, List.of());
+            passwordHistoryRepository.deleteByUserId(id);
+            authCacheEvictor.evictUser(id);
         }
         userRepository.deleteAllById(ids);
     }
@@ -226,8 +249,8 @@ public class UserServiceImpl implements UserService {
     public void resetPassword(Long id, UserPasswordResetReq req) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("用户不存在"));
-        user.setPassword(passwordEncoder.encode(req.getNewPassword()));
-        user.setPwdResetAt(LocalDateTime.now());
+        passwordValidator.validateStrength(req.getNewPassword(), user.getUsername());
+        applyNewPassword(user, req.getNewPassword());
         userRepository.save(user);
     }
 
@@ -245,6 +268,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("用户不存在");
         }
         roleService.assignRoles(id, req.getRoleIds());
+        authCacheEvictor.evictUser(id);
     }
 
     /**
@@ -256,7 +280,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public Optional<UserCredential> findCredential(String username) {
         return userRepository.findByUsername(username)
-                .map(u -> new UserCredential(u.getId(), u.getUsername(), u.getPassword(), u.getStatus()));
+                .map(u -> new UserCredential(u.getId(), u.getUsername(), u.getPassword(), u.getStatus(),
+                        u.getPwdResetAt(), u.getPwdErrorCount(), u.getPwdLockedUntil()));
     }
 
     /**
@@ -265,6 +290,86 @@ public class UserServiceImpl implements UserService {
     @Override
     public Optional<UserDetailResp> findById(Long id) {
         return userRepository.findById(id).map(this::toDetail);
+    }
+
+    /**
+     * 当前用户自助修改密码：校验旧密码 → 校验新密码强度 → 校验历史重复 → 落库。
+     *
+     * @param userId 当前用户 ID
+     * @param req    旧 / 新密码
+     * @throws BusinessException 旧密码错误 / 强度不足 / 命中历史
+     */
+    @Override
+    @Transactional
+    public void changeCurrentPassword(Long userId, UserPasswordChangeReq req) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException("用户不存在"));
+        if (!passwordEncoder.matches(req.getOldPassword(), user.getPassword())) {
+            throw new BusinessException("原密码错误");
+        }
+        if (req.getOldPassword().equals(req.getNewPassword())) {
+            throw new BusinessException("新密码不能与原密码相同");
+        }
+        passwordValidator.validate(req.getNewPassword(), user.getUsername(),
+                passwordHistoryRepository.findRecentByUserId(userId));
+        applyNewPassword(user, req.getNewPassword());
+        userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public int increasePwdErrorCount(Long userId, int maxCount, LocalDateTime lockUntil) {
+        Optional<User> opt = userRepository.findById(userId);
+        if (opt.isEmpty()) {
+            return 0;
+        }
+        User user = opt.get();
+        int current = (user.getPwdErrorCount() == null ? 0 : user.getPwdErrorCount()) + 1;
+        user.setPwdErrorCount(current);
+        if (maxCount > 0 && current >= maxCount && lockUntil != null) {
+            user.setPwdLockedUntil(lockUntil);
+        }
+        userRepository.save(user);
+        return current;
+    }
+
+    @Override
+    @Transactional
+    public void resetPwdErrorAndUnlock(Long userId) {
+        Optional<User> opt = userRepository.findById(userId);
+        if (opt.isEmpty()) {
+            return;
+        }
+        User user = opt.get();
+        if ((user.getPwdErrorCount() != null && user.getPwdErrorCount() > 0)
+                || user.getPwdLockedUntil() != null) {
+            user.setPwdErrorCount(0);
+            user.setPwdLockedUntil(null);
+            userRepository.save(user);
+        }
+    }
+
+    /**
+     * 写入新密码、刷新 pwdResetAt、解锁、写入历史并裁剪保留前 N 条。
+     *
+     * @param user     目标用户
+     * @param newPlain 新密码明文
+     */
+    private void applyNewPassword(User user, String newPlain) {
+        String hash = passwordEncoder.encode(newPlain);
+        user.setPassword(hash);
+        user.setPwdResetAt(LocalDateTime.now());
+        user.setPwdErrorCount(0);
+        user.setPwdLockedUntil(null);
+        passwordHistoryRepository.save(new UserPasswordHistory(user.getId(), hash));
+        int keep = optionService.getIntOrDefault(PasswordPolicy.PASSWORD_REPETITION_TIMES.name(), 3);
+        if (keep > 0) {
+            List<UserPasswordHistory> all = passwordHistoryRepository.findRecentByUserId(user.getId());
+            if (all.size() > keep) {
+                List<UserPasswordHistory> toDelete = all.subList(keep, all.size());
+                passwordHistoryRepository.deleteAll(toDelete);
+            }
+        }
     }
 
     /**

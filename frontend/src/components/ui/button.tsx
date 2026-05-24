@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, type ButtonHTMLAttributes } from "react";
+import { Children, forwardRef, isValidElement, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 import { cn } from "~/lib/utils";
 
@@ -66,7 +66,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         type={type}
         disabled={disabled ?? loading}
         className={cn(
-          "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors",
+          "inline-flex items-center justify-center gap-1.5 rounded-md font-medium whitespace-nowrap transition-colors",
           "focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none",
           "disabled:cursor-not-allowed",
           variantClass[variant],
@@ -78,9 +78,33 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {loading ? (
           <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
         ) : null}
-        {children}
+        {normalizeChildren(children)}
       </button>
     );
   },
 );
 Button.displayName = "Button";
+
+/**
+ * 规范化按钮 children：
+ *
+ * - 把每个 string child 的前后空白 trim 掉，并 wrap 成 `<span>`，
+ *   避免 `<Icon /> 文字` 这种写法在 flex 容器下出现 “gap-1.5 + 文本前导空格” 双重间距；
+ * - 元素 / 布尔 / 数字等其他类型 child 原样保留；
+ * - 单个 string child（如纯文字按钮）直接返回，保持 DOM 结构最简。
+ */
+function normalizeChildren(children: ReactNode): ReactNode {
+  const arr = Children.toArray(children).filter((c) => c !== "");
+  if (arr.length === 1 && typeof arr[0] === "string") {
+    return arr[0].trim();
+  }
+  return arr.map((child, idx) => {
+    if (typeof child === "string") {
+      const text = child.trim();
+      if (!text) return null;
+      return <span key={`t-${idx}`}>{text}</span>;
+    }
+    if (isValidElement(child)) return child;
+    return child;
+  });
+}

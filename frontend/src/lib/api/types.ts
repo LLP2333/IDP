@@ -39,6 +39,10 @@ export interface PageResp<T> {
 export interface LoginReq {
   username: string;
   password: string;
+  /** 验证码 ID（启用验证码时必填）。 */
+  captchaId?: string;
+  /** 用户输入的验证码（启用验证码时必填）。 */
+  captcha?: string;
 }
 
 /** 登录响应。 */
@@ -47,6 +51,12 @@ export interface LoginResp {
   token: string;
   /** Token 有效期（秒）。 */
   expires: number;
+  /** 密码是否已过期（true 时需强制改密）。 */
+  passwordExpired?: boolean;
+  /** 是否处于密码到期预警期。 */
+  passwordWarning?: boolean;
+  /** 距密码到期剩余天数（仅 passwordWarning 为 true 时有意义）。 */
+  passwordExpiresInDays?: number | null;
 }
 
 /** 当前登录用户信息。 */
@@ -59,8 +69,24 @@ export interface UserInfo {
   phone: string | null;
   /** 角色编码列表，如 `["admin"]`。 */
   roles: string[];
-  /** 权限标识列表（预留，当前固定为空数组）。 */
+  /** 按钮级权限编码列表，如 `["system:user:add"]`。 */
   permissions: string[];
+}
+
+/** 验证码响应（后端返回 SVG 的 Data URL）。 */
+export interface CaptchaResp {
+  /** 验证码 ID，登录时回传给后端核对。 */
+  captchaId: string;
+  /** SVG Data URL，可直接作为 `<img src>`。 */
+  image: string;
+  /** 有效期（秒）。 */
+  expiresIn: number;
+}
+
+/** 自助修改密码请求。 */
+export interface UserPasswordChangeReq {
+  oldPassword: string;
+  newPassword: string;
 }
 
 // ============== user ==============
@@ -165,4 +191,110 @@ export interface RoleReq {
   description?: string;
   sort?: number;
   status?: number;
+}
+
+// ============== option ==============
+
+/** 系统参数类别。 */
+export type OptionCategory = "SITE" | "PASSWORD" | "LOGIN";
+
+/** 单条系统参数。 */
+export interface OptionResp {
+  id: number;
+  category: OptionCategory;
+  name: string;
+  code: string;
+  /**
+   * 实际生效值。
+   *
+   * 后端已经做过 `value` 为空时回落到 `defaultValue` 的处理，
+   * 前端拿到的就是最终展示值，可能为 `null`（如未配置的图片）。
+   */
+  value: string | null;
+  description: string | null;
+}
+
+/** 系统参数查询条件。 */
+export interface OptionQuery {
+  category?: OptionCategory;
+  codes?: string[];
+}
+
+/** 单条系统参数更新请求。 */
+export interface OptionReq {
+  id: number;
+  /** 参数键。后端会校验 id 与 code 一一对应，防止误改其它配置。 */
+  code: string;
+  value: string | null;
+}
+
+/** 重置系统参数请求。 */
+export interface OptionValueResetReq {
+  category?: OptionCategory;
+  codes?: string[];
+}
+
+/** 上传图片请求（base64 Data URL）。 */
+export interface OptionImageUploadReq {
+  code: string;
+  dataUrl: string;
+}
+
+/** 上传图片响应。 */
+export interface OptionImageUploadResp {
+  code: string;
+  dataUrl: string;
+}
+
+/** 公开网站配置（登录页可见）。 */
+export interface SiteConfigResp {
+  title: string | null;
+  copyright: string | null;
+  description: string | null;
+  logo: string | null;
+  favicon: string | null;
+  /** 备案号（如 “粤 ICP 备 xxxxxxxx 号”）。 */
+  beian: string | null;
+}
+
+/** 公开登录配置（登录页可见）。 */
+export interface LoginConfigResp {
+  captchaEnabled: boolean;
+}
+
+// ============== permission ==============
+
+/** 权限类型：1=菜单，2=按钮。 */
+export type PermissionType = 1 | 2;
+
+/** 权限项。 */
+export interface PermissionResp {
+  id: number;
+  code: string;
+  name: string;
+  type: PermissionType;
+  parentId: number;
+  sort: number;
+  status: number;
+  isSystem: boolean;
+  description: string | null;
+  children?: PermissionResp[];
+}
+
+/** 权限查询条件。 */
+export interface PermissionQuery {
+  keyword?: string;
+  status?: number;
+  type?: PermissionType;
+}
+
+/** 权限新增/修改请求。 */
+export interface PermissionReq {
+  code: string;
+  name: string;
+  type: PermissionType;
+  parentId?: number;
+  sort?: number;
+  status?: number;
+  description?: string;
 }

@@ -1,8 +1,11 @@
 package com.qvqw.idp.role.internal;
 
 import com.qvqw.idp.common.api.PageResp;
+import com.qvqw.idp.common.cache.AuthCacheEvictor;
 import com.qvqw.idp.common.exception.BusinessException;
+import com.qvqw.idp.permission.PermissionService;
 import com.qvqw.idp.role.Role;
+import com.qvqw.idp.role.RolePermission;
 import com.qvqw.idp.role.RoleService;
 import com.qvqw.idp.role.UserRole;
 import com.qvqw.idp.role.model.query.RoleQuery;
@@ -32,10 +35,20 @@ public class RoleServiceImpl implements RoleService {
 
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
+    private final RolePermissionRepository rolePermissionRepository;
+    private final PermissionService permissionService;
+    private final AuthCacheEvictor authCacheEvictor;
 
-    public RoleServiceImpl(RoleRepository roleRepository, UserRoleRepository userRoleRepository) {
+    public RoleServiceImpl(RoleRepository roleRepository,
+                           UserRoleRepository userRoleRepository,
+                           RolePermissionRepository rolePermissionRepository,
+                           PermissionService permissionService,
+                           AuthCacheEvictor authCacheEvictor) {
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
+        this.rolePermissionRepository = rolePermissionRepository;
+        this.permissionService = permissionService;
+        this.authCacheEvictor = authCacheEvictor;
     }
 
     /**
@@ -199,7 +212,12 @@ public class RoleServiceImpl implements RoleService {
                 throw new BusinessException("角色已分配给用户，请先解除分配: " + role.getName());
             }
         }
+        // 先解除角色 - 权限关联，再删除角色本身
+        for (Long id : ids) {
+            rolePermissionRepository.deleteByRoleId(id);
+        }
         roleRepository.deleteAllById(ids);
+        authCacheEvictor.evictAll();
     }
 
     /**
@@ -258,6 +276,7 @@ public class RoleServiceImpl implements RoleService {
     public void assignRoles(Long userId, List<Long> roleIds) {
         userRoleRepository.deleteByUserId(userId);
         if (roleIds == null || roleIds.isEmpty()) {
+            authCacheEvictor.evictUser(userId);
             return;
         }
         ensureRolesExist(roleIds);
@@ -265,6 +284,7 @@ public class RoleServiceImpl implements RoleService {
                 .map(rid -> new UserRole(userId, rid))
                 .toList();
         userRoleRepository.saveAll(entities);
+        authCacheEvictor.evictUser(userId);
     }
 
     /**
@@ -282,6 +302,75 @@ public class RoleServiceImpl implements RoleService {
         if (count != roleIds.stream().distinct().count()) {
             throw new BusinessException("存在无效的角色 ID");
         }
+    }
+
+    /**
+     * 查询某角色已绑定的全部权限 ID。
+     *
+     * @param roleId 角色 ID
+     * @return 权限 ID 列表（不可为 {@code null}）
+     */
+    @Override
+    public List<Long> listPermissionIdsByRoleId(Long roleId) {
+        if (roleId == null) {
+            return new ArrayList<>();
+        }
+        return rolePermissionRepository.findPermissionIdsByRoleId(roleId);
+    }
+
+    /**
+     * 重新分配某角色的权限集合（全量覆盖）。
+     *
+     * <p>admin 角色由 {@code RolePermissionSeeder} 维护，禁止通过该接口修改；如果传入 admin
+     * 会直接抛业务异常。</p>
+     *
+     * @param roleId        角色 ID
+     * @param permissionIds 权限 ID 列表（可为空，代表清空权限）
+     * @throws BusinessException 角色不存在 / 是 admin / 权限 ID 非法
+     */
+    @Override
+    @Transactional
+    public void assignPermissions(Long roleId, List<Long> permissionIds) {
+        Role role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new BusinessException("角色不存在"));
+        if ("admin".equals(role.getCode())) {
+            throw new BusinessException("admin 角色拥有全部权限，无需也不允许通过该接口分配");
+        }
+        rolePermissionRepository.deleteByRoleId(roleId);
+        if (permissionIds == null || permissionIds.isEmpty()) {
+            return;
+        }
+        List<Long> distinct = permissionIds.stream().distinct().toList();
+        Set<String> codes = permissionService.listCodesByIds(distinct);
+        if (codes.size() != distinct.size()) {
+            throw new BusinessException("存在无效的权限 ID 或权限已禁用");
+        }
+        List<RolePermission> entities = distinct.stream()
+                .map(pid -> new RolePermission(roleId, pid))
+                .toList();
+        rolePermissionRepository.saveAll(entities);
+        // 角色权限变化后，该角色下所有用户的权限缓存都需要失效
+        List<Long> userIds = userRoleRepository.findUserIdsByRoleId(roleId);
+        authCacheEvictor.evictUsers(userIds);
+    }
+
+    /**
+     * 聚合用户 → 角色 → 权限码集合。
+     *
+     * @param userId 用户 ID
+     * @return 权限码集合
+     */
+    @Override
+    public Set<String> listPermissionCodesByUserId(Long userId) {
+        if (userId == null) {
+            return new HashSet<>();
+        }
+        List<Long> roleIds = userRoleRepository.findRoleIdsByUserId(userId);
+        if (roleIds.isEmpty()) {
+            return new HashSet<>();
+        }
+        List<Long> permissionIds = rolePermissionRepository.findPermissionIdsByRoleIds(roleIds);
+        return permissionService.listCodesByIds(permissionIds);
     }
 
     /**

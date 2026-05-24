@@ -23,24 +23,31 @@ com.qvqw.idp
 ├── common/                        # 共享基础（@OPEN 模块）
 │   ├── api/R, PageResp            # 统一响应、分页响应
 │   ├── exception/BusinessException, GlobalExceptionHandler
-│   └── persistence/BaseEntity     # 审计字段父类
+│   ├── persistence/BaseEntity     # 审计字段父类
+│   ├── security/UserContext, UserContextHolder    # 跨模块用户上下文
+│   └── cache/AuthCacheEvictor                     # 鉴权缓存失效接口
 ├── auth/                          # 认证模块
-│   ├── AuthController             # /auth/login,/auth/logout,/auth/user/info
-│   ├── UserContext, UserContextHolder
+│   ├── AuthController             # /auth/login, /auth/logout, /auth/user/info, /auth/captcha
 │   └── internal/
-│       ├── SecurityConfig         # SecurityFilterChain + CORS
-│       ├── JwtTokenProvider       # JWT 签发与解析
-│       ├── JwtAuthenticationFilter
-│       ├── TokenStore             # Redis: idp:auth:token:{jti}
+│       ├── SecurityConfig         # SecurityFilterChain + CORS + 白名单
+│       ├── JwtTokenProvider, TokenStore, JwtAuthenticationFilter
+│       ├── CaptchaService, RedisAuthCacheEvictor
 │       └── JpaAuditingConfig
+├── option/                        # 系统配置
+│   ├── OptionService, OptionController, OptionCategory, PasswordPolicy
+│   └── internal/OptionRepository, OptionServiceImpl, OptionSeeder
+├── permission/                    # 权限模块
+│   ├── PermissionService, PermissionController, Permission
+│   ├── annotation/@HasPermission              # NamedInterface
+│   └── internal/PermissionRepository, PermissionServiceImpl, PermissionAspect, PermissionSeeder
 ├── user/                          # 用户管理
-│   ├── UserController             # /system/user CRUD + 重置密码 + 分配角色
-│   ├── UserService, User
-│   └── internal/UserServiceImpl, UserRepository, AdminSeeder
+│   ├── UserController             # /system/user CRUD + 改密 + 分配角色
+│   ├── UserService, User, UserPasswordHistory
+│   └── internal/UserServiceImpl, UserRepository, UserPasswordHistoryRepository, PasswordValidator, AdminSeeder
 └── role/                          # 角色管理
-    ├── RoleController             # /system/role CRUD
-    ├── RoleService, Role, UserRole
-    └── internal/RoleServiceImpl, RoleRepository, UserRoleRepository, RoleSeeder
+    ├── RoleController             # /system/role CRUD + 分配权限
+    ├── RoleService, Role, UserRole, RolePermission
+    └── internal/RoleServiceImpl, RoleRepository, UserRoleRepository, RolePermissionRepository, RoleSeeder, RolePermissionSeeder
 ```
 
 模块依赖：
@@ -49,33 +56,54 @@ com.qvqw.idp
 flowchart LR
   auth --> user
   auth --> role
-  user --> role
-  user --> common
-  role --> common
+  auth --> option
   auth --> common
+  user --> role
+  user --> option
+  user --> common
+  role --> permission
+  role --> common
+  permission --> common
+  option --> common
 ```
 
-`common` 标注为 `@ApplicationModule(type = OPEN)`，允许其子包（`api`、`exception`、`persistence`）被任意模块直接引用；`user.model.resp` 与 `role.model.resp` 通过 `@NamedInterface("model")` 暴露给跨模块使用（`UserDetailResp`/`RoleResp`）。
+要点：
+
+- `common` 标注为 `@ApplicationModule(type = OPEN)`，子包 `api`、`exception`、`persistence`、`security`、`cache` 可被任意模块直接引用。
+- `UserContext / UserContextHolder` 放在 `common.security` 而非 `auth`，避免 `permission` AOP 反向依赖 `auth` 形成循环。
+- `permission.annotation` 通过 `package-info.java` 标注 `@NamedInterface("annotation")`，允许其他模块在 Controller 上使用 `@HasPermission`。
+- `option.model.resp`、`permission.model.resp`、`user.model.resp`、`role.model.resp` 均通过 `@NamedInterface("model")` 暴露给跨模块使用。
 
 ## 数据库表
 
 | 表 | 说明 | 关键字段 |
 | --- | --- | --- |
-| `idp_sys_user` | 用户 | `username unique`, `password (BCrypt)`, `status`, `is_system`, `pwd_reset_at` |
+| `idp_sys_user` | 用户 | `username unique`, `password (BCrypt)`, `status`, `is_system`, `pwd_reset_at`, `pwd_error_count`, `pwd_locked_until` |
 | `idp_sys_role` | 角色 | `code unique`, `sort`, `status`, `is_system` |
 | `idp_sys_user_role` | 用户-角色关联 | `user_id`, `role_id`（联合主键） |
+| `idp_sys_user_password_history` | 密码历史 | `user_id`, `password_hash`, `created_at`（用于 `PASSWORD_REPETITION_TIMES` 校验） |
+| `idp_sys_option` | 系统参数 | `category`, `code`, `option_value`, `default_value`, 联合唯一 `(category, code)` |
+| `idp_sys_permission` | 权限 | `code unique`, `name`, `type (1=菜单/2=按钮)`, `parent_id`, `sort`, `status`, `is_system` |
+| `idp_sys_role_permission` | 角色-权限关联 | `role_id`, `permission_id`（联合主键） |
 
-启动时由 `RoleSeeder` + `AdminSeeder` 幂等地创建默认数据：
-- 角色：`admin`、`user`
-- 默认账号：`admin / 123456`（首次启动后请尽快通过接口修改密码）
+启动时由 Seeder 幂等地创建默认数据：
+- `RoleSeeder`：角色 `admin`、`user`
+- `AdminSeeder`：默认账号 `admin / 123456`（首次启动后请尽快通过接口修改密码）
+- `PermissionSeeder`：约 21 条系统内置权限（菜单 + 按钮）
+- `RolePermissionSeeder`：把全部系统内置权限绑定到 `admin` 角色
+- `OptionSeeder`：15 条 SITE / PASSWORD / LOGIN 默认配置
+
+> 若已有旧库（缺 `pwd_error_count` 等新列、或 `idp_sys_user_password_history` / `idp_sys_option` / `idp_sys_permission` / `idp_sys_role_permission` 等新表），可让 `ddl-auto=update` 自动加列建表；若环境不允许 DDL，请手工补齐。
 
 ## 对外 API（核心）
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/auth/login` | 账号密码登录 → `{token, expires}` |
+| POST | `/auth/login` | 账号密码登录（可选验证码） → `{token, expires, passwordExpired?, passwordWarning?, passwordExpiresInDays?}` |
 | POST | `/auth/logout` | 注销当前 JWT |
-| GET | `/auth/user/info` | 当前登录用户信息 |
+| GET | `/auth/user/info` | 当前登录用户信息（含按钮权限码） |
+| GET | `/auth/captcha` | 获取登录验证码 |
+| POST | `/system/user/password` | 当前用户自助改密 |
 | GET | `/system/user` | 用户分页（`page,size,username,status`） |
 | GET | `/system/user/{id}` | 用户详情（含角色列表） |
 | POST | `/system/user` | 新增用户 |
@@ -90,8 +118,21 @@ flowchart LR
 | PUT | `/system/role/{id}` | 修改角色 |
 | DELETE | `/system/role` | 批量删除（body：`{ids:[]}`） |
 | GET | `/system/role/{id}/user/id` | 角色下用户 ID 列表 |
+| GET | `/system/role/{id}/permission` | 角色权限 ID 列表 |
+| PUT | `/system/role/{id}/permission` | 设置角色权限（body：`{permissionIds:[]}`） |
+| GET | `/system/permission` | 权限平铺列表 |
+| GET | `/system/permission/tree` | 权限树 |
+| POST | `/system/permission` | 新增权限 |
+| PUT | `/system/permission/{id}` | 修改权限 |
+| DELETE | `/system/permission` | 批量删除（仅非内置） |
+| GET | `/system/option` | 系统参数列表 |
+| PUT | `/system/option` | 批量更新参数 |
+| PATCH | `/system/option/value` | 重置参数为默认值 |
+| POST | `/system/option/image` | 上传 base64 图片 |
+| GET | `/system/option/site` | 公开站点配置（白名单） |
+| GET | `/system/option/login` | 公开登录配置（白名单） |
 
-详细设计参见 [`../docs/auth.md`](../docs/auth.md) 与 [`../docs/user-role.md`](../docs/user-role.md)。
+详细设计参见 [`../docs/auth.md`](../docs/auth.md)、[`../docs/user-role.md`](../docs/user-role.md)、[`../docs/system-config.md`](../docs/system-config.md) 与 [`../docs/permission.md`](../docs/permission.md)。
 
 ## OpenAPI / Swagger UI
 

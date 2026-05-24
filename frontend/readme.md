@@ -23,22 +23,28 @@
 frontend/
 ├── src/
 │   ├── app/
-│   │   ├── login/page.tsx                # 登录页（账号密码）
+│   │   ├── login/page.tsx                # 登录页（账号密码 + 可选验证码 + SITE 回填）
 │   │   ├── admin/
-│   │   │   ├── layout.tsx                # 后台 Shell（侧边栏 + 顶栏 + 登出）
+│   │   │   ├── layout.tsx                # 后台 Shell（按权限过滤侧边栏 + 顶栏 + 登出）
 │   │   │   ├── page.tsx                  # 概览页
+│   │   │   ├── profile/
+│   │   │   │   └── password/page.tsx     # 当前用户自助改密
 │   │   │   └── system/
 │   │   │       ├── user/page.tsx         # 用户管理
-│   │   │       └── role/page.tsx         # 角色管理
+│   │   │       ├── role/page.tsx         # 角色管理 + 分配权限
+│   │   │       ├── permission/page.tsx   # 权限树管理
+│   │   │       └── config/page.tsx       # 系统配置（SITE/PASSWORD/LOGIN Tab）
 │   │   ├── layout.tsx                    # 根 Layout（QueryProvider + Toaster）
 │   │   └── page.tsx                      # 入口：根据登录态跳 /login 或 /admin
 │   ├── components/
 │   │   ├── providers/query-provider.tsx
-│   │   ├── ui/                           # 基础组件（Button/Input/Modal/Table/Form 等）
-│   │   └── system/                       # 业务组件（user-form/role-form 等）
+│   │   ├── ui/                           # 基础组件（Button/Input/Modal/Tabs/Switch/UploadImage 等）
+│   │   ├── system/                       # 业务表单（user/role/permission-tree/三个配置表单）
+│   │   └── permission-guard.tsx          # <PermissionGuard codes=[...]>
 │   ├── lib/
-│   │   ├── api/                          # http 封装 + auth/user/role API 客户端 + 类型
-│   │   ├── store/auth-store.ts           # zustand 持久化登录态
+│   │   ├── api/                          # http 封装 + auth/user/role/option/permission API + 类型
+│   │   ├── hooks/use-permission.ts       # 权限判断 Hook（admin 直通）
+│   │   ├── store/auth-store.ts           # zustand 持久化登录态（含 permissions）
 │   │   └── utils.ts                      # cn / apiUrl
 │   ├── styles/globals.css
 │   └── env.js                            # 环境变量校验（仅 NEXT_PUBLIC_API_BASE_URL）
@@ -76,9 +82,11 @@ API 客户端文件 → 后端接口对应：
 
 | 文件 | 后端接口 |
 | --- | --- |
-| `lib/api/auth.ts` | `POST /auth/login`、`POST /auth/logout`、`GET /auth/user/info` |
+| `lib/api/auth.ts` | `POST /auth/login`、`POST /auth/logout`、`GET /auth/user/info`、`GET /auth/captcha`、`POST /system/user/password` |
 | `lib/api/user.ts` | `GET/POST/PUT/DELETE /system/user` 系列 + 重置密码 / 分配角色 |
 | `lib/api/role.ts` | `GET/POST/PUT/DELETE /system/role` 系列 |
+| `lib/api/option.ts` | `GET/PUT/PATCH /system/option`、`POST /system/option/image`、公开 `GET /system/option/site` 与 `/system/option/login` |
+| `lib/api/permission.ts` | `GET/POST/PUT/DELETE /system/permission` 系列 + `GET/PUT /system/role/{id}/permission` |
 
 ## 常用脚本
 

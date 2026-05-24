@@ -5,10 +5,11 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { KeySquare, Pencil, Plus, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { PermissionTree } from "~/components/system/permission-tree";
 import { RoleForm, type RoleFormValues } from "~/components/system/role-form";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -16,8 +17,14 @@ import { DataTable, Pagination, type ColumnDef } from "~/components/ui/data-tabl
 import { Input } from "~/components/ui/input";
 import { Modal } from "~/components/ui/modal";
 import { Select } from "~/components/ui/select";
+import {
+  assignRolePermission,
+  getPermissionTree,
+  getRolePermission,
+} from "~/lib/api/permission";
 import { addRole, deleteRole, listRole, updateRole } from "~/lib/api/role";
 import { HttpError } from "~/lib/api/http";
+import { usePermission } from "~/lib/hooks/use-permission";
 import type { RoleResp } from "~/lib/api/types";
 
 const FORM_ID = "role-form";
@@ -30,6 +37,7 @@ const FORM_ID = "role-form";
  */
 export default function RolePage() {
   const queryClient = useQueryClient();
+  const { hasPermission } = usePermission();
 
   const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState("");
@@ -38,6 +46,37 @@ export default function RolePage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<RoleResp | null>(null);
+
+  const [assignRole, setAssignRole] = useState<RoleResp | null>(null);
+  const [assignIds, setAssignIds] = useState<number[]>([]);
+
+  const treeQuery = useQuery({
+    queryKey: ["permission", "tree"],
+    queryFn: getPermissionTree,
+    enabled: !!assignRole,
+  });
+  const rolePermQuery = useQuery({
+    queryKey: ["role", "permission", assignRole?.id],
+    queryFn: () => (assignRole ? getRolePermission(assignRole.id) : Promise.resolve([])),
+    enabled: !!assignRole,
+  });
+  useEffect(() => {
+    if (rolePermQuery.data) setAssignIds(rolePermQuery.data);
+  }, [rolePermQuery.data]);
+
+  const assignMutation = useMutation({
+    mutationFn: (ids: number[]) => {
+      if (!assignRole) throw new Error("未选择角色");
+      return assignRolePermission(assignRole.id, ids);
+    },
+    onSuccess: () => {
+      toast.success("已保存角色权限");
+      setAssignRole(null);
+      void queryClient.invalidateQueries({ queryKey: ["role", "permission"] });
+    },
+    onError: (err: unknown) =>
+      toast.error(err instanceof HttpError ? err.message : "操作失败"),
+  });
 
   const listQuery = useQuery({
     queryKey: ["role", "list", { page, keyword, status }],
@@ -129,9 +168,21 @@ export default function RolePage() {
     {
       key: "actions",
       title: "操作",
-      width: "180px",
+      width: "280px",
       render: (row) => (
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+          {hasPermission("system:role:assignPermission") ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setAssignRole(row);
+                setAssignIds([]);
+              }}
+            >
+              <KeySquare size={14} /> 分配权限
+            </Button>
+          ) : null}
           <Button
             size="sm"
             variant="ghost"
@@ -269,6 +320,35 @@ export default function RolePage() {
         }
       >
         <RoleForm formId={FORM_ID} initial={editing} onSubmit={handleSubmit} />
+      </Modal>
+
+      <Modal
+        open={!!assignRole}
+        onClose={() => setAssignRole(null)}
+        title={`分配权限 - ${assignRole?.name ?? ""}`}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setAssignRole(null)}>
+              取消
+            </Button>
+            <Button
+              loading={assignMutation.isPending}
+              onClick={() => assignMutation.mutate(assignIds)}
+            >
+              保存
+            </Button>
+          </>
+        }
+      >
+        {treeQuery.isLoading || rolePermQuery.isLoading ? (
+          <div className="text-sm text-zinc-500">加载中…</div>
+        ) : (
+          <PermissionTree
+            data={treeQuery.data ?? []}
+            value={assignIds}
+            onChange={setAssignIds}
+          />
+        )}
       </Modal>
     </div>
   );

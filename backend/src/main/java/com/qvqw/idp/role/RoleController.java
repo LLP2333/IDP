@@ -2,6 +2,7 @@ package com.qvqw.idp.role;
 
 import com.qvqw.idp.common.api.PageResp;
 import com.qvqw.idp.common.api.R;
+import com.qvqw.idp.permission.annotation.HasPermission;
 import com.qvqw.idp.role.model.query.RoleQuery;
 import com.qvqw.idp.role.model.req.RoleReq;
 import com.qvqw.idp.role.model.resp.RoleResp;
@@ -48,6 +49,7 @@ public class RoleController {
      * @return 分页结果
      */
     @Operation(summary = "角色分页", description = "按 name/code 关键字模糊匹配，可选 status 过滤。")
+    @HasPermission("system:role:list")
     @GetMapping
     public R<PageResp<RoleResp>> page(RoleQuery query,
                                       @Parameter(description = "页码，从 1 开始") @RequestParam(defaultValue = "1") int page,
@@ -62,6 +64,7 @@ public class RoleController {
      * @return 角色列表
      */
     @Operation(summary = "角色列表（不分页）")
+    @HasPermission("system:role:list")
     @GetMapping("/list")
     public R<List<RoleResp>> list(RoleQuery query) {
         return R.ok(roleService.list(query));
@@ -74,6 +77,7 @@ public class RoleController {
      * @return 角色信息
      */
     @Operation(summary = "角色详情")
+    @HasPermission("system:role:list")
     @GetMapping("/{id}")
     public R<RoleResp> get(@Parameter(description = "角色 ID") @PathVariable Long id) {
         return R.ok(roleService.get(id));
@@ -86,6 +90,7 @@ public class RoleController {
      * @return 新建角色 ID
      */
     @Operation(summary = "新增角色")
+    @HasPermission("system:role:add")
     @PostMapping
     public R<Long> create(@RequestBody @Valid RoleReq req) {
         return R.ok(roleService.create(req));
@@ -98,6 +103,7 @@ public class RoleController {
      * @param req 角色请求体
      */
     @Operation(summary = "修改角色")
+    @HasPermission("system:role:update")
     @PutMapping("/{id}")
     public R<Void> update(@Parameter(description = "角色 ID") @PathVariable Long id,
                           @RequestBody @Valid RoleReq req) {
@@ -111,6 +117,7 @@ public class RoleController {
      * @param req 角色 ID 列表
      */
     @Operation(summary = "批量删除角色", description = "请求体形如 {\"ids\":[1,2,3]}")
+    @HasPermission("system:role:delete")
     @DeleteMapping
     public R<Void> delete(@RequestBody @Valid DeleteIdsReq req) {
         roleService.delete(req.getIds());
@@ -124,9 +131,38 @@ public class RoleController {
      * @return 用户 ID 列表
      */
     @Operation(summary = "角色下用户 ID 列表")
+    @HasPermission("system:role:list")
     @GetMapping("/{id}/user/id")
     public R<List<Long>> listUserId(@Parameter(description = "角色 ID") @PathVariable Long id) {
         return R.ok(roleService.listUserIdsByRoleId(id));
+    }
+
+    /**
+     * 列出某角色绑定的权限 ID。
+     *
+     * @param id 角色 ID
+     * @return 权限 ID 列表
+     */
+    @Operation(summary = "查询角色权限", description = "返回角色已勾选的权限 ID 列表，admin 角色返回全部内置权限")
+    @HasPermission({"system:role:list", "system:role:assignPermission"})
+    @GetMapping("/{id}/permission")
+    public R<List<Long>> listPermission(@Parameter(description = "角色 ID") @PathVariable Long id) {
+        return R.ok(roleService.listPermissionIdsByRoleId(id));
+    }
+
+    /**
+     * 重新分配角色权限。
+     *
+     * @param id  角色 ID
+     * @param req 权限 ID 列表
+     */
+    @Operation(summary = "分配角色权限", description = "全量覆盖；传空列表代表清空权限。admin 角色不允许通过该接口修改")
+    @HasPermission("system:role:assignPermission")
+    @PutMapping("/{id}/permission")
+    public R<Void> assignPermission(@Parameter(description = "角色 ID") @PathVariable Long id,
+                                    @RequestBody @Valid AssignPermissionReq req) {
+        roleService.assignPermissions(id, req.getPermissionIds());
+        return R.ok();
     }
 
     /**
@@ -145,6 +181,24 @@ public class RoleController {
 
         public void setIds(List<Long> ids) {
             this.ids = ids;
+        }
+    }
+
+    /**
+     * 角色分配权限请求体。
+     */
+    @Schema(description = "角色分配权限请求")
+    public static class AssignPermissionReq {
+
+        @Schema(description = "权限 ID 列表（空列表代表清空）", example = "[1,2,3]")
+        private List<Long> permissionIds;
+
+        public List<Long> getPermissionIds() {
+            return permissionIds;
+        }
+
+        public void setPermissionIds(List<Long> permissionIds) {
+            this.permissionIds = permissionIds;
         }
     }
 }

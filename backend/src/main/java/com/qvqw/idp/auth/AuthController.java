@@ -1,7 +1,9 @@
 package com.qvqw.idp.auth;
 
+import com.qvqw.idp.auth.internal.CaptchaService;
 import com.qvqw.idp.auth.internal.JwtTokenProvider;
 import com.qvqw.idp.auth.model.req.LoginReq;
+import com.qvqw.idp.auth.model.resp.CaptchaResp;
 import com.qvqw.idp.auth.model.resp.LoginResp;
 import com.qvqw.idp.auth.model.resp.UserInfoResp;
 import com.qvqw.idp.common.api.R;
@@ -31,10 +33,14 @@ public class AuthController {
 
     private final AuthService authService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final CaptchaService captchaService;
 
-    public AuthController(AuthService authService, JwtTokenProvider jwtTokenProvider) {
+    public AuthController(AuthService authService,
+                          JwtTokenProvider jwtTokenProvider,
+                          CaptchaService captchaService) {
         this.authService = authService;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.captchaService = captchaService;
     }
 
     /**
@@ -43,11 +49,25 @@ public class AuthController {
      * @param req 登录请求体（用户名 + 密码）
      * @return 登录成功返回 JWT 与有效期；失败抛 {@link com.qvqw.idp.common.exception.BusinessException}
      */
-    @Operation(summary = "账号密码登录", description = "成功后返回 JWT 字符串与过期时间（秒）。")
+    @Operation(summary = "账号密码登录",
+            description = "成功后返回 JWT 字符串与过期时间（秒）；如 LOGIN_CAPTCHA_ENABLED=1 需同时传 captchaId/captcha")
     @SecurityRequirements
     @PostMapping("/login")
     public R<LoginResp> login(@RequestBody @Valid LoginReq req) {
         return R.ok(authService.login(req));
+    }
+
+    /**
+     * 生成一次性验证码（SVG dataUrl + UUID）。
+     *
+     * @return 验证码 ID 与图片
+     */
+    @Operation(summary = "获取登录验证码",
+            description = "返回 captchaId 与 SVG dataUrl，前端使用 <img src=resp.image> 渲染即可；登录时回传 captchaId / captcha")
+    @SecurityRequirements
+    @GetMapping("/captcha")
+    public R<CaptchaResp> captcha() {
+        return R.ok(captchaService.generate());
     }
 
     /**

@@ -195,10 +195,10 @@ export default function UserPage() {
     {
       key: "actions",
       title: "操作",
-      width: "260px",
+      width: "300px",
       align: "right",
       render: (row) => (
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
           <Button size="sm" variant="ghost" onClick={() => void openEdit(row.id)}>
             <Pencil size={14} /> 编辑
           </Button>

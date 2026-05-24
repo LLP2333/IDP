@@ -1,10 +1,14 @@
 package com.qvqw.idp.user.internal;
 
+import com.qvqw.idp.common.cache.AuthCacheEvictor;
 import com.qvqw.idp.common.exception.BusinessException;
+import com.qvqw.idp.option.OptionService;
 import com.qvqw.idp.role.RoleService;
 import com.qvqw.idp.user.User;
+import com.qvqw.idp.user.UserPasswordHistory;
 import com.qvqw.idp.user.UserService;
 import com.qvqw.idp.user.model.req.UserCreateReq;
+import com.qvqw.idp.user.model.req.UserPasswordChangeReq;
 import com.qvqw.idp.user.model.req.UserPasswordResetReq;
 import com.qvqw.idp.user.model.req.UserRoleUpdateReq;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -21,13 +27,16 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class UserServiceImplTest {
 
     @Mock
@@ -38,6 +47,18 @@ class UserServiceImplTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private UserPasswordHistoryRepository passwordHistoryRepository;
+
+    @Mock
+    private PasswordValidator passwordValidator;
+
+    @Mock
+    private OptionService optionService;
+
+    @Mock
+    private AuthCacheEvictor authCacheEvictor;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -125,5 +146,72 @@ class UserServiceImplTest {
         Optional<UserService.UserCredential> credential = userService.findCredential("admin");
         assertThat(credential).isPresent();
         assertThat(credential.get().passwordHash()).isEqualTo("hash");
+    }
+
+    @Test
+    void changeCurrentPasswordWrongOldShouldFail() {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("admin");
+        user.setPassword("hash");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(eq("wrong"), eq("hash"))).thenReturn(false);
+
+        UserPasswordChangeReq req = new UserPasswordChangeReq();
+        req.setOldPassword("wrong");
+        req.setNewPassword("Newpwd#234");
+        assertThatThrownBy(() -> userService.changeCurrentPassword(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("原密码错误");
+    }
+
+    @Test
+    void changeCurrentPasswordSameAsOldShouldFail() {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("admin");
+        user.setPassword("hash");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(eq("samepwd"), eq("hash"))).thenReturn(true);
+
+        UserPasswordChangeReq req = new UserPasswordChangeReq();
+        req.setOldPassword("samepwd");
+        req.setNewPassword("samepwd");
+        assertThatThrownBy(() -> userService.changeCurrentPassword(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("不能与原密码相同");
+    }
+
+    @Test
+    void changeCurrentPasswordOk() {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("admin");
+        user.setPassword("hash");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(eq("OldPass#123"), eq("hash"))).thenReturn(true);
+        when(passwordEncoder.encode("NewPass#234")).thenReturn("newhash");
+        when(optionService.getIntOrDefault(anyString(), anyInt())).thenReturn(3);
+
+        UserPasswordChangeReq req = new UserPasswordChangeReq();
+        req.setOldPassword("OldPass#123");
+        req.setNewPassword("NewPass#234");
+        userService.changeCurrentPassword(1L, req);
+
+        verify(passwordValidator).validate(eq("NewPass#234"), eq("admin"), anyList());
+        verify(passwordHistoryRepository).save(any(UserPasswordHistory.class));
+        assertThat(user.getPassword()).isEqualTo("newhash");
+    }
+
+    @Test
+    void increasePwdErrorCountShouldLockWhenReachThreshold() {
+        User user = new User();
+        user.setId(1L);
+        user.setPwdErrorCount(4);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        int after = userService.increasePwdErrorCount(1L, 5, java.time.LocalDateTime.now().plusMinutes(5));
+        assertThat(after).isEqualTo(5);
+        assertThat(user.getPwdLockedUntil()).isNotNull();
     }
 }

@@ -34,6 +34,9 @@ public class SecurityConfig {
     private static final String[] WHITELIST = {
             "/auth/login",
             "/auth/logout",
+            "/auth/captcha",
+            "/system/option/site",
+            "/system/option/login",
             "/error",
             "/v3/api-docs/**",
             "/swagger-ui/**",

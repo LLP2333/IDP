@@ -17,6 +17,12 @@ public class LoginReq {
     @NotBlank(message = "密码不能为空")
     private String password;
 
+    @Schema(description = "验证码 ID（开启 LOGIN_CAPTCHA_ENABLED 时必传）", example = "9c3f9a2d4b8a4c8e9c3f9a2d4b8a4c8e")
+    private String captchaId;
+
+    @Schema(description = "验证码值（开启 LOGIN_CAPTCHA_ENABLED 时必传）", example = "A4F9")
+    private String captcha;
+
     public String getUsername() {
         return username;
     }
@@ -31,5 +37,21 @@ public class LoginReq {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getCaptchaId() {
+        return captchaId;
+    }
+
+    public void setCaptchaId(String captchaId) {
+        this.captchaId = captchaId;
+    }
+
+    public String getCaptcha() {
+        return captcha;
+    }
+
+    public void setCaptcha(String captcha) {
+        this.captcha = captcha;
     }
 }

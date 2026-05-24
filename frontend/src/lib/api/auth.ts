@@ -1,5 +1,11 @@
 import { http } from "./http";
-import type { LoginReq, LoginResp, UserInfo } from "./types";
+import type {
+  CaptchaResp,
+  LoginReq,
+  LoginResp,
+  UserInfo,
+  UserPasswordChangeReq,
+} from "./types";
 
 /** 认证模块在后端的统一前缀。 */
 const BASE_URL = "/auth";
@@ -38,4 +44,29 @@ export function logout() {
  */
 export function getUserInfo() {
   return http.get<UserInfo>(`${BASE_URL}/user/info`);
+}
+
+/**
+ * 获取登录验证码（SVG）。
+ *
+ * 后端会把对应答案写入 Redis（或本地 fallback store），TTL 通常 2 分钟。
+ * 浏览器拿到 `image` 后直接放到 `<img src>` 渲染即可。
+ *
+ * @returns 验证码 ID 与 SVG Data URL
+ */
+export function getCaptcha() {
+  return http.get<CaptchaResp>(`${BASE_URL}/captcha`, undefined, {
+    skipUnauthorizedHandler: true,
+  });
+}
+
+/**
+ * 当前登录用户修改自己的密码。
+ *
+ * 需要在请求头携带 token；修改成功后建议主动登出，让用户使用新密码重新登录。
+ *
+ * @param req 旧密码 + 新密码
+ */
+export function changeCurrentPassword(req: UserPasswordChangeReq) {
+  return http.post<void>("/system/user/password", req);
 }

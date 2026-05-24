@@ -31,7 +31,7 @@ public class UserInfoResp {
     @Schema(description = "角色编码列表", example = "[\"admin\"]")
     private List<String> roles;
 
-    @Schema(description = "权限标识列表（预留，当前固定空数组）")
+    @Schema(description = "权限标识列表（按钮级权限码）", example = "[\"system:user:list\",\"system:user:add\"]")
     private List<String> permissions;
 
     public Long getId() {
