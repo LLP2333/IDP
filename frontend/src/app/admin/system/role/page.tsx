@@ -22,6 +22,12 @@ import type { RoleResp } from "~/lib/api/types";
 
 const FORM_ID = "role-form";
 
+/**
+ * 角色管理页：表格 + 搜索栏 + 新增/编辑 Modal。
+ *
+ * 数据流均通过 `useQuery / useMutation` 管理，并在变更后通过
+ * `queryClient.invalidateQueries(["role", "list"])` 刷新列表缓存。
+ */
 export default function RolePage() {
   const queryClient = useQueryClient();
 
@@ -77,6 +83,9 @@ export default function RolePage() {
       toast.error(err instanceof HttpError ? err.message : "操作失败"),
   });
 
+  /**
+   * 表单提交分发：根据是否存在 `editing` 走新增或更新接口。
+   */
   const handleSubmit = (values: RoleFormValues) => {
     if (editing) {
       updateMutation.mutate({ id: editing.id, values });

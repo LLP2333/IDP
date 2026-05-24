@@ -1,19 +1,37 @@
 package com.qvqw.idp.auth.model.resp;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.util.List;
 
 /**
  * 当前登录用户信息。
  */
+@Schema(description = "当前登录用户信息")
 public class UserInfoResp {
 
+    @Schema(description = "用户 ID", example = "1")
     private Long id;
+
+    @Schema(description = "用户名", example = "admin")
     private String username;
+
+    @Schema(description = "昵称")
     private String nickname;
+
+    @Schema(description = "头像 URL")
     private String avatar;
+
+    @Schema(description = "邮箱")
     private String email;
+
+    @Schema(description = "手机号")
     private String phone;
+
+    @Schema(description = "角色编码列表", example = "[\"admin\"]")
     private List<String> roles;
+
+    @Schema(description = "权限标识列表（预留，当前固定空数组）")
     private List<String> permissions;
 
     public Long getId() {

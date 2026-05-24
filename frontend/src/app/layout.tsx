@@ -17,6 +17,13 @@ const geist = Geist({
   variable: "--font-geist-sans",
 });
 
+/**
+ * Next.js App Router 根布局。
+ *
+ * 注入全局依赖：
+ * - {@link QueryProvider}：TanStack Query 客户端；
+ * - `Toaster`：sonner 的全局 toast 容器。
+ */
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {

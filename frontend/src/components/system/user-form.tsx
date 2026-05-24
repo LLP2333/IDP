@@ -42,18 +42,33 @@ const updateSchema = z.object({
   ...baseSchema,
 });
 
+/** 新增用户的完整表单值类型（含 username/password）。 */
 export type UserCreateValues = z.infer<typeof createSchema>;
+/** 修改用户的表单值类型（不含 username/password）。 */
 export type UserUpdateValues = z.infer<typeof updateSchema>;
 
 interface UserFormProps {
+  /** form 元素的 id，用于通过 `form={formId}` 在外层按钮上触发提交。 */
   formId: string;
+  /** 表单模式：`create` 用于新增，`update` 用于编辑。 */
   mode: "create" | "update";
+  /** 编辑模式下的初始用户详情；新增模式可不传。 */
   initial?: UserDetailResp | null;
+  /** 可选角色列表，用于渲染角色多选 chip。 */
   roles: RoleResp[];
+  /** 新增模式的提交回调。 */
   onCreate?: (values: UserCreateValues) => void;
+  /** 编辑模式的提交回调。 */
   onUpdate?: (values: UserUpdateValues) => void;
 }
 
+/**
+ * 用户 新增 / 编辑 表单。
+ *
+ * - `mode` 决定使用 createSchema 或 updateSchema；
+ * - 角色通过 chip 形式多选，状态由 `react-hook-form` 的 `watch/setValue` 维护；
+ * - 编辑模式提交时会丢弃 `username/password` 字段，仅回传可修改字段。
+ */
 export function UserForm({
   formId,
   mode,
@@ -126,6 +141,10 @@ export function UserForm({
 
   const selectedRoleIds = watch("roleIds") ?? [];
 
+  /**
+   * 切换某个角色的选中状态：已选则移除，未选则加入。
+   * @param roleId 角色 ID
+   */
   const toggleRole = (roleId: number) => {
     const current = new Set(selectedRoleIds);
     if (current.has(roleId)) current.delete(roleId);
@@ -133,6 +152,10 @@ export function UserForm({
     setValue("roleIds", Array.from(current));
   };
 
+  /**
+   * 表单提交分发：根据 `mode` 调不同回调。
+   * 编辑模式下显式丢弃 `username/password`，避免被误传给后端 update 接口。
+   */
   const submit = (values: UserCreateValues) => {
     if (isCreate) {
       onCreate?.(values);

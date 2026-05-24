@@ -22,6 +22,13 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+/**
+ * 登录页。
+ *
+ * 流程：账号密码 → 调 `/auth/login` 拿 token → 调 `/auth/user/info` 拿用户信息 →
+ * 写入 `auth-store` → 跳转 `/admin`。
+ * 若已登录（store 中存在 token），直接跳转后台。
+ */
 export default function LoginPage() {
   const router = useRouter();
   const setToken = useAuthStore((s) => s.setToken);

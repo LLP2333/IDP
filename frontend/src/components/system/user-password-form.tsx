@@ -15,8 +15,20 @@ const schema = z.object({
   path: ["confirm"],
 });
 
+/**
+ * 由 zod schema 推导出的重置密码表单值类型。
+ */
 export type PasswordResetValues = z.infer<typeof schema>;
 
+/**
+ * 重置密码表单。
+ *
+ * 包含 “新密码 + 确认密码” 两个字段，并通过 zod `refine` 校验两者必须一致。
+ * 仅把 `newPassword` 透传给外部回调，避免后端误收到 `confirm`。
+ *
+ * @param props.formId   form 元素 id，用于在 Modal footer 触发提交
+ * @param props.onSubmit 校验通过后的回调
+ */
 export function UserPasswordForm({
   formId,
   onSubmit,

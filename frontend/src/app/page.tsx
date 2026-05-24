@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 
 import { useAuthStore } from "~/lib/store/auth-store";
 
+/**
+ * 应用根入口：根据登录态自动跳转。
+ *
+ * - 已登录 → `/admin`
+ * - 未登录 → `/login`
+ *
+ * 在持久化恢复完成（`hydrated === true`）前展示 “正在跳转…” 占位，避免闪烁。
+ */
 export default function Home() {
   const router = useRouter();
   const token = useAuthStore((s) => s.token);

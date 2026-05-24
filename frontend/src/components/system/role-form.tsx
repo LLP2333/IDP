@@ -25,14 +25,26 @@ const schema = z.object({
   status: z.union([z.literal(0), z.literal(1)]),
 });
 
+/**
+ * 由 zod schema 推导出的角色表单值类型。
+ */
 export type RoleFormValues = z.infer<typeof schema>;
 
 interface RoleFormProps {
+  /** form 元素的 id，用于在外层 Modal 的 footer 中通过 `form={formId}` 触发提交。 */
   formId: string;
+  /** 编辑模式下的初始值；新增时传 `null` 或不传。 */
   initial?: RoleResp | null;
+  /** 校验通过后的回调，参数即标准化后的表单值。 */
   onSubmit: (values: RoleFormValues) => void;
 }
 
+/**
+ * 角色 新增 / 编辑 表单。
+ *
+ * - 系统内置角色的 code 字段会被禁用，避免误改；
+ * - 当 `initial` 变更时，会通过 `reset` 同步表单值。
+ */
 export function RoleForm({ formId, initial, onSubmit }: RoleFormProps) {
   const {
     register,

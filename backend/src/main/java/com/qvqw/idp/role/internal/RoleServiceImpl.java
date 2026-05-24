@@ -21,6 +21,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * 角色服务实现：维护 {@code idp_sys_role} 与 {@code idp_sys_user_role} 两张表。
+ */
 @Service
 public class RoleServiceImpl implements RoleService {
 
@@ -32,6 +35,14 @@ public class RoleServiceImpl implements RoleService {
         this.userRoleRepository = userRoleRepository;
     }
 
+    /**
+     * 角色分页查询。
+     *
+     * @param query 关键字 / 状态条件（可为 {@code null}）
+     * @param page  页码（从 1 开始）
+     * @param size  每页大小
+     * @return 分页结果（按 sort 升序）
+     */
     @Override
     public PageResp<RoleResp> page(RoleQuery query, int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.ASC, "sort"));
@@ -45,6 +56,12 @@ public class RoleServiceImpl implements RoleService {
         return PageResp.from(result, this::toResp);
     }
 
+    /**
+     * 不分页查询所有角色，可选按状态过滤；用于下拉选择等场景。
+     *
+     * @param query 状态过滤（可为 {@code null}）
+     * @return 角色列表（按 sort 升序）
+     */
     @Override
     public List<RoleResp> list(RoleQuery query) {
         return roleRepository.findAllByOrderBySortAsc().stream()
@@ -53,6 +70,13 @@ public class RoleServiceImpl implements RoleService {
                 .toList();
     }
 
+    /**
+     * 查询角色详情。
+     *
+     * @param id 角色 ID
+     * @return 角色 DTO
+     * @throws BusinessException 角色不存在
+     */
     @Override
     public RoleResp get(Long id) {
         Role role = roleRepository.findById(id)
@@ -60,11 +84,24 @@ public class RoleServiceImpl implements RoleService {
         return toResp(role);
     }
 
+    /**
+     * 按编码查找角色，供其他模块（如 user 模块装配角色）使用。
+     *
+     * @param code 角色编码
+     * @return 角色；不存在时 {@code Optional.empty()}
+     */
     @Override
     public java.util.Optional<RoleResp> findByCode(String code) {
         return roleRepository.findByCode(code).map(this::toResp);
     }
 
+    /**
+     * 新增角色：code 唯一校验通过后落库，默认非系统角色。
+     *
+     * @param req 新增请求
+     * @return 角色 ID
+     * @throws BusinessException 编码已存在
+     */
     @Override
     @Transactional
     public Long create(RoleReq req) {
@@ -81,6 +118,17 @@ public class RoleServiceImpl implements RoleService {
         return roleRepository.save(role).getId();
     }
 
+    /**
+     * 修改角色：
+     * <ul>
+     *   <li>系统内置角色禁止改 code；</li>
+     *   <li>code 变更时校验唯一。</li>
+     * </ul>
+     *
+     * @param id  角色 ID
+     * @param req 修改请求
+     * @throws BusinessException 角色不存在 / 编码冲突 / 系统内置角色改 code
+     */
     @Override
     @Transactional
     public void update(Long id, RoleReq req) {
@@ -104,6 +152,14 @@ public class RoleServiceImpl implements RoleService {
         roleRepository.save(role);
     }
 
+    /**
+     * 批量删除角色。
+     *
+     * <p>预校验全部通过后再删除；任一角色为系统内置或仍被用户引用时整体失败回滚。</p>
+     *
+     * @param ids 待删除的角色 ID 列表
+     * @throws BusinessException 角色不存在 / 系统内置 / 仍有用户绑定
+     */
     @Override
     @Transactional
     public void delete(List<Long> ids) {
@@ -123,6 +179,12 @@ public class RoleServiceImpl implements RoleService {
         roleRepository.deleteAllById(ids);
     }
 
+    /**
+     * 查询用户下所有角色编码（用于 JWT 过滤器装填权限）。
+     *
+     * @param userId 用户 ID（可为 {@code null}）
+     * @return 角色编码集合；用户不存在或无角色时为空集
+     */
     @Override
     public Set<String> listCodesByUserId(Long userId) {
         if (userId == null) {
@@ -137,16 +199,37 @@ public class RoleServiceImpl implements RoleService {
                 .collect(Collectors.toCollection(HashSet::new));
     }
 
+    /**
+     * 列出某角色下的所有用户 ID。
+     *
+     * @param roleId 角色 ID
+     * @return 用户 ID 列表
+     */
     @Override
     public List<Long> listUserIdsByRoleId(Long roleId) {
         return userRoleRepository.findUserIdsByRoleId(roleId);
     }
 
+    /**
+     * 列出某用户拥有的所有角色 ID。
+     *
+     * @param userId 用户 ID
+     * @return 角色 ID 列表
+     */
     @Override
     public List<Long> listRoleIdsByUserId(Long userId) {
         return userRoleRepository.findRoleIdsByUserId(userId);
     }
 
+    /**
+     * 重新分配某用户的角色集合（全量覆盖）。
+     *
+     * <p>实现：先清空原有记录，再批量写入新记录；传入空列表表示清空角色。</p>
+     *
+     * @param userId  用户 ID
+     * @param roleIds 角色 ID 列表
+     * @throws BusinessException 角色 ID 非法
+     */
     @Override
     @Transactional
     public void assignRoles(Long userId, List<Long> roleIds) {
@@ -161,6 +244,12 @@ public class RoleServiceImpl implements RoleService {
         userRoleRepository.saveAll(entities);
     }
 
+    /**
+     * 校验所有角色 ID 是否合法存在；只要有一个 ID 在 {@code idp_sys_role} 中找不到则抛业务异常。
+     *
+     * @param roleIds 待校验的角色 ID 列表
+     * @throws BusinessException 存在非法角色 ID
+     */
     @Override
     public void ensureRolesExist(List<Long> roleIds) {
         if (roleIds == null || roleIds.isEmpty()) {
@@ -172,6 +261,9 @@ public class RoleServiceImpl implements RoleService {
         }
     }
 
+    /**
+     * 实体 → DTO 的简单映射。
+     */
     private RoleResp toResp(Role role) {
         RoleResp resp = new RoleResp();
         resp.setId(role.getId());

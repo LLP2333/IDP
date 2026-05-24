@@ -93,6 +93,27 @@ flowchart LR
 
 详细设计参见 [`../docs/auth.md`](../docs/auth.md) 与 [`../docs/user-role.md`](../docs/user-role.md)。
 
+## OpenAPI / Swagger UI
+
+集成 `springdoc-openapi-starter-webmvc-ui v3`，所有对外接口都会自动生成可视化文档：
+
+| 入口 | 路径 |
+| --- | --- |
+| Swagger UI | <http://localhost:8080/swagger-ui.html> |
+| OpenAPI JSON | <http://localhost:8080/v3/api-docs> |
+| OpenAPI YAML | <http://localhost:8080/v3/api-docs.yaml> |
+
+> 全局已注册 JWT `bearerAuth` 安全方案：在 Swagger UI 右上角 “Authorize” 中填入 `/auth/login` 拿到的 token（不带 `Bearer ` 前缀）即可调试需要登录的接口。
+
+强制要求（详见 `.cursor/rules/api-doc-comments.mdc`）：
+
+- Controller 类必须加 `@Tag`；每个 endpoint 必须加 `@Operation`；路径 / Query 参数加 `@Parameter`。
+- 请求 / 响应 DTO 与字段必须加 `@Schema`；必填字段加 `requiredMode = REQUIRED`。
+- 不需要 JWT 的接口（如登录 / 登出）使用 `@SecurityRequirements` 显式关闭全局安全要求。
+- 全局 OpenAPI 定义集中维护在 `com.qvqw.idp.common.config.OpenApiConfig`。
+
+生产可通过 `springdoc.api-docs.enabled=false` / `springdoc.swagger-ui.enabled=false` 关闭暴露。
+
 ## 配置
 
 `src/main/resources/application.properties`：

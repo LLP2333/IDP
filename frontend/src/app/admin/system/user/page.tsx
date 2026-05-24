@@ -36,13 +36,28 @@ import type { UserDetailResp, UserResp } from "~/lib/api/types";
 const FORM_ID = "user-form";
 const PWD_FORM_ID = "user-password-form";
 
-/** 把空字符串转为 undefined，避免后端校验报错。 */
+/**
+ * 把空字符串转为 `undefined`。
+ *
+ * 后端在 `@Email` / `@Pattern` 校验时把空字符串视作有效输入，但前端表单
+ * 空白输入实际上是 “未填写”。提交前用本函数把这些空白字段标准化为 `undefined`，
+ * 让 JSON 序列化时整字段被省略。
+ *
+ * @param v 原始字符串
+ * @returns 非空字符串原样返回，其余返回 `undefined`
+ */
 function emptyToUndefined(v: string | undefined): string | undefined {
   if (v === undefined) return undefined;
   if (v.trim() === "") return undefined;
   return v;
 }
 
+/**
+ * 用户管理页：表格 + 搜索栏 + 新增/编辑/重置密码 Modal。
+ *
+ * 列表通过 `useQuery` 拉取，写操作通过 `useMutation` 调用并在成功后
+ * 失效 `["user", "list"]` 缓存以触发自动重拉。
+ */
 export default function UserPage() {
   const queryClient = useQueryClient();
 
@@ -135,6 +150,10 @@ export default function UserPage() {
       toast.error(err instanceof HttpError ? err.message : "操作失败"),
   });
 
+  /**
+   * 打开 “编辑用户” 弹窗：先拉详情再展示，避免使用列表中的精简字段。
+   * @param id 用户 ID
+   */
   const openEdit = async (id: number) => {
     try {
       const detail = await getUser(id);

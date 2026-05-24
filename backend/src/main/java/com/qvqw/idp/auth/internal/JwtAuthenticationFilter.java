@@ -21,7 +21,15 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 解析 JWT 并装填 SecurityContext + UserContext。
+ * 解析 JWT 并装填 {@link SecurityContextHolder} 与 {@link UserContextHolder}。
+ *
+ * <p>对每个请求至多解析一次：</p>
+ * <ol>
+ *   <li>从 {@code Authorization: Bearer <token>} 头取出 token，无 token 时直接放行；</li>
+ *   <li>校验签名并检查 jti 是否仍在 Redis（未被注销）；</li>
+ *   <li>查询用户角色码，写入 SecurityContext / UserContextHolder；</li>
+ *   <li>请求结束在 {@code finally} 块中清空两个 ThreadLocal，避免线程复用泄露。</li>
+ * </ol>
  */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -42,6 +50,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.roleService = roleService;
     }
 
+    /**
+     * 真正的过滤入口：解析 token → 装填上下文 → 调用下游 → 清理。
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -77,6 +88,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
+    /**
+     * 从请求头中提取裸 token（去掉 {@code Bearer } 前缀）。
+     *
+     * @param request HTTP 请求
+     * @return token；不存在或格式不正确时返回 {@code null}
+     */
     private String resolveToken(HttpServletRequest request) {
         String header = request.getHeader(HEADER);
         if (StringUtils.hasText(header) && header.startsWith(PREFIX)) {

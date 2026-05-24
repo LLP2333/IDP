@@ -14,9 +14,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 启动时初始化默认超级管理员账号。
+ * 启动时初始化默认超级管理员账号 {@code admin / 123456}。
  *
- * <p>晚于 {@code RoleSeeder} 执行，依赖 admin 角色已存在。</p>
+ * <p>晚于 {@link com.qvqw.idp.role.internal.RoleSeeder} 执行，依赖 admin 角色已存在。</p>
  */
 @Component
 @Order(20)
@@ -39,6 +39,11 @@ public class AdminSeeder implements CommandLineRunner {
         this.passwordEncoder = passwordEncoder;
     }
 
+    /**
+     * 启动后的回调：admin 账号已存在则跳过，否则创建并赋予 admin 角色。
+     *
+     * @param args 命令行参数（透传，不使用）
+     */
     @Override
     @Transactional
     public void run(String... args) {

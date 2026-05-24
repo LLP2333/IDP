@@ -44,4 +44,6 @@ cd backend && ./mvnw verify
 - ❌ 只改实现，不写测试，理由是"逻辑很简单"。
 - ❌ 改了对外 API 签名却没更新 README/`docs/`。
 - ❌ 新增环境变量但只改 `.env`，没改 `.env.example` 和 `src/env.js`。
-- ❌ 改 Drizzle schema 但没运行 `pnpm db:generate` 生成迁移。
+- ❌ 新增 / 修改 Controller / DTO 没有补 OpenAPI 注解（`@Tag` / `@Operation` / `@Schema`）。
+- ❌ 新增 / 修改公开函数 / 组件没有中文 JSDoc / Javadoc。
+- ❌ JSDoc 注释中出现 `*/` 序列（会被 `tsc` 误判为类型错误，必须改写规避）。

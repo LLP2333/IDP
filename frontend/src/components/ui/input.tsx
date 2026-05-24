@@ -4,10 +4,19 @@ import { forwardRef, type InputHTMLAttributes } from "react";
 
 import { cn } from "~/lib/utils";
 
+/**
+ * Input Props，继承原生 `input` 全部属性。
+ */
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  /** 是否处于校验失败状态，会切换为红色边框。 */
   invalid?: boolean;
 }
 
+/**
+ * 通用 Input 组件。
+ *
+ * 使用 `forwardRef` 把 `ref` 透传给底层 `input`，方便配合 `react-hook-form`。
+ */
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, invalid, ...rest }, ref) => (
     <input

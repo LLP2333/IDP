@@ -1,0 +1,118 @@
+---
+description: 所有对外接口必须有 OpenAPI 注解，所有函数 / 组件必须有中文 JSDoc / Javadoc 注释
+alwaysApply: true
+---
+
+# API 文档 & 注释规范
+
+无论改动多小，凡是新增 / 修改 **公开 API** 或 **公开函数**，都必须满足以下两条硬性要求。
+缺一不可，**等同于 “没改完”**。
+
+## 1. 后端 OpenAPI 注解（强制）
+
+后端使用 `springdoc-openapi-starter-webmvc-ui v3`，所有对外接口都要在 Swagger UI（`/swagger-ui.html`）里可见、可调试。
+
+### 必须使用的注解
+
+| 位置 | 注解 | 说明 |
+| --- | --- | --- |
+| Controller 类 | `@Tag(name, description)` | 接口分组 + 描述 |
+| 每个 endpoint | `@Operation(summary, description)` | 接口语义 |
+| 路径 / Query 参数 | `@Parameter(description)` | 参数含义 |
+| DTO 类与字段 | `@Schema(description, example)` | 字段含义与示例 |
+| 必填 DTO 字段 | `@Schema(requiredMode = REQUIRED)` | 标注必填 |
+| 无需 JWT 的接口 | `@SecurityRequirements`（空数组） | 显式关闭全局安全要求 |
+
+全局 OpenAPI 定义集中在 `com.qvqw.idp.common.config.OpenApiConfig`：
+- 维护 title / version / contact / license；
+- 注册全局 `bearerAuth` JWT 安全方案；
+- Swagger UI 上 “Authorize” 输入 token 后所有受保护接口都会自动带 `Authorization` 头。
+
+### 反例
+
+```java
+// ❌ 没有 @Tag / @Operation
+@RestController
+@RequestMapping("/system/user")
+public class UserController {
+    @GetMapping
+    public R<PageResp<UserResp>> page(...) { ... }
+}
+
+// ❌ DTO 字段没有 @Schema
+public class UserCreateReq {
+    @NotBlank
+    private String username;
+}
+
+// ✅ 正确：补齐 Tag / Operation / Schema
+@Tag(name = "用户管理")
+@RestController
+@RequestMapping("/system/user")
+public class UserController {
+    @Operation(summary = "用户分页")
+    @GetMapping
+    public R<PageResp<UserResp>> page(...) { ... }
+}
+
+@Schema(description = "新增用户请求")
+public class UserCreateReq {
+    @Schema(description = "用户名", example = "zhangsan",
+            requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank
+    private String username;
+}
+```
+
+## 2. 函数 / 组件注释（强制）
+
+### 后端 Javadoc（中文）
+
+- **所有 public 类 / 接口 / 方法** 都要有中文 Javadoc，简要说明 “做什么 / 关键约束 / 抛出哪类异常”。
+- **复杂私有方法** 涉及事务边界、跨模块调用、特殊错误码时也必须写 Javadoc。
+- Service 实现类的 `@Override` 方法仍需 Javadoc，说明 `@throws BusinessException` 的触发条件。
+- 禁止 “代码即文档” 的同义重复注释（如 `// 把 id 赋值给 user`），只写非显然的意图、约束、副作用。
+
+### 前端 JSDoc / TSDoc（中文）
+
+- **所有 export 的函数 / Hook / 组件 / 类型** 必须有 JSDoc。
+- 组件 `Props` 接口的每个字段都要 `/** ... */` 行内注释。
+- API 客户端函数要解释 “对应后端哪个接口”、副作用（如自动带 token、401 跳转）。
+- JSDoc 中如出现 `*/` 序列（如路径 `**/model/*`），必须改写规避，否则 `tsc` 会报伪类型错误。
+- 禁止占位 / 复读式注释（如 `// 设置 token`）。
+
+### 反例
+
+```ts
+// ❌ 没有 JSDoc
+export function login(req: LoginReq) {
+  return http.post<LoginResp>("/auth/login", req, { skipUnauthorizedHandler: true });
+}
+
+// ✅ 正确：有 JSDoc 说明语义与副作用
+/**
+ * 账号密码登录。
+ *
+ * 由于本接口本身就是 “未登录” 状态发起，所以显式跳过 401 自动跳转。
+ *
+ * @param req 登录请求体
+ * @returns JWT 与过期秒数
+ */
+export function login(req: LoginReq) {
+  return http.post<LoginResp>("/auth/login", req, { skipUnauthorizedHandler: true });
+}
+```
+
+## 3. 自检命令
+
+提交前必须本地通过：
+
+```bash
+# 后端：编译 + 单测 + Modulith 边界校验
+cd backend && ./mvnw verify
+
+# 前端：lint + typecheck + 单测
+cd frontend && pnpm check && pnpm test
+```
+
+如果 OpenAPI 注解缺失，Swagger UI（`http://localhost:8080/swagger-ui.html`）会立即暴露；如果 JSDoc 中包含 `*/` 等危险序列，`pnpm typecheck` 会报错。两者都不能跳过。

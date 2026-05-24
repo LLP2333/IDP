@@ -1,28 +1,62 @@
 package com.qvqw.idp.user.model.resp;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 用户详情响应 DTO。
+ * 用户详情响应 DTO（包含角色信息与扩展字段）。
  */
+@Schema(description = "用户详情")
 public class UserDetailResp {
 
+    @Schema(description = "用户 ID", example = "1")
     private Long id;
+
+    @Schema(description = "用户名", example = "admin")
     private String username;
+
+    @Schema(description = "昵称")
     private String nickname;
+
+    @Schema(description = "邮箱")
     private String email;
+
+    @Schema(description = "手机号")
     private String phone;
+
+    @Schema(description = "性别：0=未知, 1=男, 2=女")
     private Integer gender;
+
+    @Schema(description = "头像 URL")
     private String avatar;
+
+    @Schema(description = "备注")
     private String description;
+
+    @Schema(description = "状态：1=启用, 0=禁用")
     private Integer status;
+
+    @Schema(description = "是否系统内置")
     private Boolean isSystem;
+
+    @Schema(description = "角色 ID 列表", example = "[1,2]")
     private List<Long> roleIds;
+
+    @Schema(description = "角色编码列表", example = "[\"admin\"]")
     private List<String> roleCodes;
+
+    @Schema(description = "角色名称列表", example = "[\"超级管理员\"]")
     private List<String> roleNames;
+
+    @Schema(description = "创建时间")
     private LocalDateTime createdAt;
+
+    @Schema(description = "最后更新时间")
     private LocalDateTime updatedAt;
+
+    @Schema(description = "最后一次重置密码时间")
     private LocalDateTime pwdResetAt;
 
     public Long getId() {

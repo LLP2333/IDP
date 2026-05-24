@@ -7,6 +7,9 @@ import java.util.Set;
 
 /**
  * 当前登录用户上下文（跨模块对外暴露的轻量视图）。
+ *
+ * <p>由 {@link com.qvqw.idp.auth.internal.JwtAuthenticationFilter} 在每个请求开始时构造，
+ * 写入到 {@link UserContextHolder} 中，业务层只读访问。</p>
  */
 public class UserContext implements Serializable {
 
@@ -41,6 +44,12 @@ public class UserContext implements Serializable {
         return roleCodes;
     }
 
+    /**
+     * 判断当前用户是否拥有指定角色编码。
+     *
+     * @param code 角色编码（与 {@code idp_sys_role.code} 对齐）
+     * @return 拥有该角色时返回 {@code true}
+     */
     public boolean hasRole(String code) {
         return roleCodes.contains(code);
     }

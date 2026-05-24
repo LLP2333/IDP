@@ -5,6 +5,9 @@ import Link from "next/link";
 
 import { useAuthStore } from "~/lib/store/auth-store";
 
+/**
+ * 后台首页 / 概览页：展示当前账户信息与业务模块入口。
+ */
 export default function AdminHomePage() {
   const user = useAuthStore((s) => s.user);
 

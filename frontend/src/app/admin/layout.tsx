@@ -18,6 +18,14 @@ const NAV_ITEMS = [
   { href: "/admin/system/role", label: "角色管理", icon: ShieldCheck },
 ];
 
+/**
+ * `/admin/**` 路由下的整体 Shell：侧边栏 + 顶栏 + 主内容区。
+ *
+ * 同时负责：
+ * - 路由级登录守卫：未登录则跳转 `/login`；
+ * - 首次进入时调用 `/auth/user/info` 拉取并缓存当前用户信息；
+ * - 顶栏提供登出按钮，登出后清空登录态并跳转登录页。
+ */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -51,6 +59,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
+  /**
+   * 登出处理：尝试调用后端登出，再清理本地登录态并跳回登录页。
+   * 后端调用失败（如已离线）时也要保证前端能正常退出。
+   */
   const handleLogout = async () => {
     try {
       await logout();

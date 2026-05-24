@@ -107,6 +107,8 @@ API 客户端文件 → 后端接口对应：
 2. **统一通过 `~/` 别名引用 `src/`**：见 `tsconfig.json`。
 3. **环境变量必须在 `src/env.js` 中声明**，不要直接读取 `process.env`（仅 `lib/api/http.ts` 直接读，因 server / client 同时使用）。
 4. **登录态、JWT、用户信息只放在 `auth-store`**，禁止再放到其它 store 或 cookie。
+5. **所有 `export` 的函数 / Hook / 组件 / 类型必须有中文 JSDoc**；组件 Props 接口的每个字段都要 `/** ... */` 行内注释；详见 `.cursor/rules/api-doc-comments.mdc`。
+6. **JSDoc 中如包含 `*/` 序列**（如 `**/model/*` 这种 glob）必须改写规避，否则 `tsc` 会报伪类型错误。
 
 ## 默认登录账号
 

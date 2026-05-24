@@ -1,28 +1,35 @@
 package com.qvqw.idp.role.model.req;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * 角色新增/修改请求。
+ * 角色新增 / 修改请求。
  */
+@Schema(description = "角色新增/修改请求")
 public class RoleReq {
 
+    @Schema(description = "角色名称", example = "超级管理员", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "角色名称不能为空")
     @Size(max = 64, message = "角色名称长度不能超过 64")
     private String name;
 
+    @Schema(description = "角色编码（字母开头，仅可包含字母/数字/下划线，全局唯一）",
+            example = "admin", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "角色编码不能为空")
     @Pattern(regexp = "^[a-zA-Z][a-zA-Z0-9_]{1,63}$", message = "角色编码必须以字母开头，仅可包含字母、数字、下划线")
     private String code;
 
+    @Schema(description = "描述")
     @Size(max = 255, message = "描述长度不能超过 255")
     private String description;
 
+    @Schema(description = "排序值（升序）", example = "10")
     private Integer sort;
 
-    /** 1=启用，0=禁用 */
+    @Schema(description = "状态：1=启用, 0=禁用", example = "1")
     private Integer status;
 
     public String getName() {

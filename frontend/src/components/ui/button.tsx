@@ -4,12 +4,20 @@ import { forwardRef, type ButtonHTMLAttributes } from "react";
 
 import { cn } from "~/lib/utils";
 
+/** 按钮视觉变体。 */
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
+/** 按钮尺寸。 */
 type Size = "sm" | "md" | "lg";
 
+/**
+ * 按钮组件 Props，继承原生 `button` 全部 HTML 属性。
+ */
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  /** 视觉变体，默认 `primary`。 */
   variant?: Variant;
+  /** 尺寸，默认 `md`。 */
   size?: Size;
+  /** 是否处于 loading 状态：会自动禁用并展示菊花。 */
   loading?: boolean;
 }
 
@@ -32,6 +40,12 @@ const sizeClass: Record<Size, string> = {
   lg: "h-10 px-5 text-base",
 };
 
+/**
+ * 通用按钮组件。
+ *
+ * - 自带 `type="button"` 默认值，避免在表单中意外触发提交；
+ * - `loading` 与 `disabled` 任一为 true 时按钮均不可点击。
+ */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {

@@ -66,6 +66,11 @@ pnpm dev
 
 浏览器访问 <http://localhost:3000> 会跳转到 `/login`，使用 `admin / 123456` 登录。
 
+后端 Swagger UI / OpenAPI 文档：
+
+- Swagger UI: <http://localhost:8080/swagger-ui.html>
+- OpenAPI JSON: <http://localhost:8080/v3/api-docs>
+
 ---
 
 ## 业务模块
@@ -82,10 +87,12 @@ pnpm dev
 
 1. **新增功能必须附带测试用例**：后端 JUnit，前端 Vitest，且 PR 中需保证测试通过。
 2. **新增功能必须同步更新文档**：包括 `readme.md`、模块级 README 以及 `docs/` 下相应说明。
-3. **目录规范**：
+3. **新增 / 修改对外 API 必须补 OpenAPI 注解**：`@Tag` / `@Operation` / `@Schema`，详见 `.cursor/rules/api-doc-comments.mdc`。
+4. **所有公开函数 / 组件必须有中文 JSDoc / Javadoc**：禁止占位 / 复读式注释；JSDoc 中避免出现 `*/` 序列。
+5. **目录规范**：
    - 后端遵循 **Spring Modulith** 包结构（参见 `backend/readme.md`）。
    - 前端按业务页面 + 组件 + API 客户端组织（参见 `frontend/README.md`）。
-4. **提交前自检**：
+6. **提交前自检**：
    - 后端：`./mvnw verify`
    - 前端：`pnpm check && pnpm test`
 

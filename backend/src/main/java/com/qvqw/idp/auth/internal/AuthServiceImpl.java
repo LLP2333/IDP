@@ -16,6 +16,9 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 认证服务实现：完成账号密码校验、签发 / 注销 JWT 与查询当前登录用户信息。
+ */
 @Service
 public class AuthServiceImpl implements AuthService {
 
@@ -37,6 +40,16 @@ public class AuthServiceImpl implements AuthService {
         this.tokenStore = tokenStore;
     }
 
+    /**
+     * 校验账号密码并签发 JWT。
+     *
+     * <p>错误场景统一抛出 {@link BusinessException} 并由全局异常处理器返回 400，避免暴露
+     * “用户名错误” / “密码错误” 之类的差异，降低被枚举撞库的风险。</p>
+     *
+     * @param req 登录请求
+     * @return 含 token 与过期秒数的登录响应
+     * @throws BusinessException 用户名或密码错误、账号被禁用
+     */
     @Override
     public LoginResp login(LoginReq req) {
         UserService.UserCredential credential = userService.findCredential(req.getUsername())
@@ -52,6 +65,14 @@ public class AuthServiceImpl implements AuthService {
         return new LoginResp(issued.token(), tokenProvider.getExpires());
     }
 
+    /**
+     * 注销指定 jti（JWT ID）的会话。
+     *
+     * <p>仅从 Redis 中删除 jti 即可，剩余生命周期由客户端自行清理。{@code jti} 为 {@code null}
+     * 时本方法无副作用。</p>
+     *
+     * @param jti 待失效的 JWT ID
+     */
     @Override
     public void logout(String jti) {
         if (jti != null) {
@@ -59,6 +80,12 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    /**
+     * 读取当前线程上下文中的用户，组装其昵称 / 头像 / 角色编码等完整信息。
+     *
+     * @return 用户信息
+     * @throws BusinessException 未登录（{@code code=401}）或用户已被删除
+     */
     @Override
     public UserInfoResp getCurrentUserInfo() {
         UserContext ctx = UserContextHolder.get();

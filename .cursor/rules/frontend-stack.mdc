@@ -1,5 +1,5 @@
 ---
-description: 前端 T3 Stack 编码规范（Next.js + TS + tRPC + Drizzle）
+description: 前端编码规范（Next.js + TypeScript + Tailwind + React Query）
 globs: frontend/**/*.{ts,tsx,js,jsx,mjs,cjs}
 alwaysApply: false
 ---
@@ -12,36 +12,64 @@ alwaysApply: false
 - **React 19** 函数式组件 + Hooks；禁止 class component。
 - **TypeScript strict** 已开启，禁止使用 `any`，确实需要时用 `unknown` 并收窄。
 - **Tailwind CSS v4** + `prettier-plugin-tailwindcss`（class 顺序由 Prettier 自动整理）。
-- **tRPC v11** + TanStack React Query。
-- **NextAuth v5** beta。
-- **Drizzle ORM** + PostgreSQL（`drizzle-orm/node-postgres`）。
+- **数据请求**：自封装 `lib/api/http.ts`（fetch 封装）+ **TanStack React Query**。
+- **状态管理**：**Zustand**（持久化登录态到 localStorage），不引入 Redux / Recoil。
+- **表单**：React Hook Form + Zod + `@hookform/resolvers`。
+- **图标 / Toast**：lucide-react / sonner。
+
+> ⚠️ 本项目 **不使用** tRPC / NextAuth / Drizzle / Pages Router。所有数据都通过 fetch 直连后端 Spring Boot REST API（详见后端 Swagger UI：`/swagger-ui.html`）。
 
 ## 模块组织
 
 ```text
 src/
-├── app/            # 路由 + 页面 + Route Handlers
-│   └── _components # 仅当前路由复用的组件
-├── lib/            # 通用纯函数工具
-├── server/         # 服务端代码，文件首行加 `import "server-only"` 或仅服务端导入
-│   ├── api/        # tRPC routers
-│   ├── auth/       # NextAuth 配置
-│   └── db/         # Drizzle schema + 客户端
-├── trpc/           # tRPC 客户端封装
+├── app/                          # 路由 + 页面 + Route Handlers
+│   ├── login/page.tsx            # 登录页
+│   └── admin/                    # 后台路由组
+│       ├── layout.tsx            # 后台 Shell（登录守卫 + 侧边栏 + 顶栏）
+│       └── system/{user,role}/page.tsx
+├── components/
+│   ├── providers/                # React Provider（QueryClient 等）
+│   ├── ui/                       # 基础组件（Button/Input/Modal/...）
+│   └── system/                   # 业务组件（user-form、role-form 等）
+├── lib/
+│   ├── api/                      # http 封装 + 模块 API 客户端 + 类型
+│   ├── store/                    # zustand store（auth-store 等）
+│   └── utils.ts                  # 纯工具函数（cn / apiUrl 等）
 ├── styles/
-└── env.js          # 环境变量校验入口
+└── env.js                        # 环境变量校验入口
 ```
 
 - **路径别名**：使用 `~/xxx` 引用 `src/xxx`，禁止深层相对路径。
-- **服务端代码**：放在 `src/server/`，跨模块只导入 `*.ts` 不导入服务端依赖。
-- **环境变量**：必须先在 `src/env.js` 中声明并通过 zod 校验，组件内通过 `env.XXX` 访问，禁止直接读 `process.env`。
+- **环境变量**：必须先在 `src/env.js` 中声明并通过 zod 校验。组件中通过 `env.XXX` 访问，禁止直接读 `process.env`（仅 `lib/api/http.ts` 例外，因 SSR / Vitest 需要早期取值）。
+- **登录态、JWT、用户信息只能放在 `auth-store`**，禁止再放到其它 store 或 cookie。
+
+## 注释规范 ✅
+
+> 所有 “对外暴露” 的函数、组件、Hook、类型都必须配 **中文 JSDoc/TSDoc**，否则视为不完整。
+
+1. **函数 / Hook**：使用 JSDoc 描述用途、副作用、关键参数与返回值。复杂参数另外用 `@param` 标注。
+2. **组件**：在组件函数前写 JSDoc 描述用途与关键行为；`Props` 接口的每个字段都用 `/** … */` 行内注释。
+3. **公共类型 / 接口**：和后端对齐时，写明 “对应后端哪个 DTO / 字段含义”。
+4. **Store**：state、action、副作用都加 JSDoc；模块顶部的副作用（如把 token 注入 HTTP 层）必须解释清楚 *为什么放在这里*。
+5. **JSDoc 注释中如包含 `*/`** 等可能被解析为 “注释结束符” 的文本，必须改写规避（如把 `**/model/*` 写成 `<module>/model/`），避免 `tsc` 报 `Cannot find name 'model'` 这种伪类型错误。
+6. **避免无意义注释**（如 `// 设置 token`），只写非显然的意图与约束。
+
+## API 客户端约定
+
+- 所有 HTTP 调用都走 `lib/api/http.ts`：
+  - 自动注入 `Authorization: Bearer <token>`；
+  - 自动反序列化后端 `R<T> = {code, msg, data}`，仅 `code === 0` 返回 `data`；
+  - 401 触发注册的 unauthorized 回调（默认会清空登录态并跳转 `/login`）。
+- 每个业务模块在 `lib/api/<module>.ts` 中暴露一组同名函数，每个函数都要有 JSDoc。
+- 与后端 DTO 对齐的类型集中放在 `lib/api/types.ts`，命名 `XxxReq` / `XxxResp` / `XxxQuery`。
 
 ## 测试要求
 
 - 使用 **Vitest**（已配置 jsdom + Testing Library）。
 - 测试文件与代码同目录，命名 `*.test.ts` / `*.test.tsx`。
-- 新增 / 修改任何公共工具、组件、tRPC procedure，都必须附带测试。
-- 提交前 `pnpm test` 必须全绿。
+- 新增 / 修改任何公共工具、组件、API 客户端都必须附带测试。
+- 提交前 `pnpm check && pnpm test` 必须全绿。
 
 ## 常见反例
 
@@ -54,13 +82,28 @@ import { env } from "~/env";
 const url = env.NEXT_PUBLIC_API_BASE_URL;
 ```
 
-```tsx
-// ❌ 禁止：在客户端组件中导入 server-only 模块
-"use client";
-import { db } from "~/server/db";
+```ts
+// ❌ 禁止：导出函数没有 JSDoc
+export function listUser(query: UserPageQuery) {
+  return http.get(...);
+}
 
-// ✅ 正确：客户端通过 tRPC 调用
-"use client";
-import { api } from "~/trpc/react";
-const { data } = api.post.getLatest.useQuery();
+// ✅ 正确：导出函数必须配 JSDoc
+/**
+ * 用户分页查询。
+ *
+ * @param query 模糊匹配条件 + 分页参数
+ * @returns 分页结果
+ */
+export function listUser(query: UserPageQuery) {
+  return http.get(...);
+}
+```
+
+```ts
+// ❌ 禁止：JSDoc 中出现 `*/` 序列（会过早闭合注释，触发 tsc 报错）
+/** 命名对应 backend/**/model/* */
+
+// ✅ 正确：避开 `*/` 序列
+/** 命名对应 backend/<module>/model/<dto>.java */
 ```

@@ -5,11 +5,17 @@ import { useEffect, type ReactNode } from "react";
 import { cn } from "~/lib/utils";
 
 interface ModalProps {
+  /** 是否可见。 */
   open: boolean;
+  /** 关闭回调（点击右上角 ✕ 或按下 ESC 时触发）。 */
   onClose: () => void;
+  /** 弹窗标题。 */
   title: string;
+  /** 弹窗主体内容（通常是表单）。 */
   children: ReactNode;
+  /** 底部操作区（可选）。 */
   footer?: ReactNode;
+  /** 弹窗宽度档位。 */
   size?: "sm" | "md" | "lg";
 }
 
@@ -19,6 +25,13 @@ const sizeClass = {
   lg: "max-w-2xl",
 };
 
+/**
+ * 通用模态弹窗。
+ *
+ * - 支持 ESC 关闭；
+ * - 点击内容区域不会冒泡触发关闭；
+ * - 通过 `footer` 槽渲染底部按钮，便于在外层用 `react-hook-form` 控制提交按钮。
+ */
 export function Modal({
   open,
   onClose,

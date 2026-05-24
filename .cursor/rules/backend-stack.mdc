@@ -8,12 +8,13 @@ alwaysApply: false
 
 ## 技术栈基线
 
-- **Java 21** + **Spring Boot 3**
+- **Java 21** + **Spring Boot 4**
 - **Spring Modulith** 进行模块化拆分
 - **PostgreSQL**（与前端共用 `compose.yaml` 中的实例）
 - **Redis** 用于缓存
 - **Maven Wrapper** (`./mvnw`)
 - **JUnit 5** + Spring Test
+- **springdoc-openapi v3**：自动生成 OpenAPI 3 文档 + Swagger UI
 
 ## 模块组织（Spring Modulith）
 
@@ -37,14 +38,37 @@ com.example.demo.<module>
 - 跨模块通信优先用 **领域事件**（`ApplicationEventPublisher` + `@ApplicationModuleListener`），避免直接调用其他模块的 Service。
 - 数据库表名 / 字段使用 snake_case。
 
+## OpenAPI 强制要求 ✅
+
+> 所有对外 HTTP 接口都必须可在 Swagger UI（`/swagger-ui.html`）中可视化、可调试。**新增 / 修改 Controller 时必须同步补全注解，否则视为不完整。**
+
+1. **Controller 类** 加 `@Tag(name = "...", description = "...")`。
+2. **每个 endpoint** 加 `@Operation(summary = "...", description = "...")`；返回 `void` 的写明业务语义。
+3. **路径参数 / Query 参数** 用 `@Parameter(description = "...")` 描述。
+4. **请求 / 响应 DTO** 类与字段均加 `@Schema(description = "...", example = "...")`；必填字段加 `requiredMode = REQUIRED`。
+5. **不需要 JWT 的接口**（如登录 / 登出）使用 `@SecurityRequirements`（空数组）覆盖全局安全方案；其余接口默认套用全局 `bearerAuth`。
+6. 全局 OpenAPI 定义统一维护在 `com.qvqw.idp.common.config.OpenApiConfig`，需要新增 server / contact / license 时改这里。
+
+> Swagger UI / api-docs 已在 `SecurityConfig#WHITELIST` 中放行，新增白名单时记得维护这个数组。
+
+## 注释规范 ✅
+
+- **公共类 / 接口 / 方法**：均使用 **中文 Javadoc**，简要说明 “做什么 / 关键约束 / 抛出哪类异常”。
+- **复杂私有方法**：当逻辑非平凡（涉及事务边界、特殊错误码、跨模块调用）时也必须写 Javadoc。
+- **Service 实现类**：方法上必须 `@Override` + Javadoc；说明 `@throws BusinessException` 的触发条件。
+- **DTO**：每个可见字段都要 `@Schema`；字段含义不要让前端通过命名去猜。
+- **避免重复 “代码即文档” 的注释**（如 `// 增加 1`），只写非显然的意图、约束、副作用。
+
 ## 测试要求
 
 - 每个 Service、Controller、Repository 都需对应的 JUnit 测试类。
 - 命名约定：单元测试 `XxxTest`，集成测试 `XxxIT`。
-- 模块边界校验建议至少有一个 `ApplicationModules.of(...).verify()` 测试。
+- 模块边界校验至少有一个 `ApplicationModules.of(...).verify()` 测试。
 - 提交前 `./mvnw verify` 必须通过。
 
 ## 配置约定
 
 - 默认 profile 走本地 `compose.yaml`；生产配置放 `application-prod.properties`。
 - 敏感信息（数据库密码、API Key）**不写入仓库**，通过环境变量或外部配置注入。
+- OpenAPI 相关属性集中在 `application.properties` 的 `# OpenAPI` 段，生产可通过
+  `springdoc.api-docs.enabled=false` / `springdoc.swagger-ui.enabled=false` 关闭。
