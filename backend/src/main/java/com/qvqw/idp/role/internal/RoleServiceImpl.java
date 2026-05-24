@@ -8,14 +8,17 @@ import com.qvqw.idp.role.UserRole;
 import com.qvqw.idp.role.model.query.RoleQuery;
 import com.qvqw.idp.role.model.req.RoleReq;
 import com.qvqw.idp.role.model.resp.RoleResp;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -38,6 +41,10 @@ public class RoleServiceImpl implements RoleService {
     /**
      * 角色分页查询。
      *
+     * <p>通过 JPA Criteria 动态拼装条件，null/空字段不会下推到 SQL，规避
+     * Hibernate 7 + PostgreSQL 在 null 参数推断为 {@code bytea} 时
+     * {@code lower(bytea) does not exist} 的报错。</p>
+     *
      * @param query 关键字 / 状态条件（可为 {@code null}）
      * @param page  页码（从 1 开始）
      * @param size  每页大小
@@ -47,13 +54,29 @@ public class RoleServiceImpl implements RoleService {
     public PageResp<RoleResp> page(RoleQuery query, int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.ASC, "sort"));
         String keyword = query == null ? null : query.getKeyword();
-        Page<Role> result;
-        if (StringUtils.hasText(keyword)) {
-            result = roleRepository.findByNameContainingIgnoreCaseOrCodeContainingIgnoreCase(keyword, keyword, pageable);
-        } else {
-            result = roleRepository.findAll(pageable);
-        }
+        Integer status = query == null ? null : query.getStatus();
+        Specification<Role> spec = buildPageSpec(keyword, status);
+        Page<Role> result = roleRepository.findAll(spec, pageable);
         return PageResp.from(result, this::toResp);
+    }
+
+    /**
+     * 构造角色分页的动态条件：keyword 同时匹配 name / code（忽略大小写），status 等值过滤。
+     */
+    private static Specification<Role> buildPageSpec(String keyword, Integer status) {
+        return (root, cq, cb) -> {
+            List<Predicate> predicates = new ArrayList<>(2);
+            if (StringUtils.hasText(keyword)) {
+                String pattern = "%" + keyword.trim().toLowerCase() + "%";
+                Predicate nameLike = cb.like(cb.lower(root.get("name")), pattern);
+                Predicate codeLike = cb.like(cb.lower(root.get("code")), pattern);
+                predicates.add(cb.or(nameLike, codeLike));
+            }
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     /**

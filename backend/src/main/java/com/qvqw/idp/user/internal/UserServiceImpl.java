@@ -13,15 +13,18 @@ import com.qvqw.idp.user.model.req.UserRoleUpdateReq;
 import com.qvqw.idp.user.model.req.UserUpdateReq;
 import com.qvqw.idp.user.model.resp.UserDetailResp;
 import com.qvqw.idp.user.model.resp.UserResp;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +54,11 @@ public class UserServiceImpl implements UserService {
     /**
      * 用户分页查询。
      *
+     * <p>条件全部使用 JPA Criteria 动态拼装，{@code null} / 空字符串字段直接跳过，
+     * 不会作为参数下推到 SQL，从根上避免 Hibernate 7 + PostgreSQL 在
+     * {@code (?  is null or lower(...) ...)} 写法下把 {@code null} 推断为
+     * {@code bytea} 而抛出 {@code function lower(bytea) does not exist} 的问题。</p>
+     *
      * @param query 查询条件（用户名、状态），可为 {@code null}
      * @param page  页码（从 1 开始）
      * @param size  每页大小
@@ -60,10 +68,28 @@ public class UserServiceImpl implements UserService {
     public PageResp<UserResp> page(UserQuery query, int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
-        String username = query == null || isBlank(query.getUsername()) ? null : query.getUsername();
+        String username = query == null || isBlank(query.getUsername()) ? null : query.getUsername().trim();
         Integer status = query == null ? null : query.getStatus();
-        Page<User> result = userRepository.search(username, status, pageable);
+        Specification<User> spec = buildPageSpec(username, status);
+        Page<User> result = userRepository.findAll(spec, pageable);
         return PageResp.from(result, this::toResp);
+    }
+
+    /**
+     * 构造分页查询的动态条件。null/blank 字段不会出现在最终 SQL 中。
+     */
+    private static Specification<User> buildPageSpec(String username, Integer status) {
+        return (root, cq, cb) -> {
+            List<Predicate> predicates = new ArrayList<>(2);
+            if (username != null && !username.isBlank()) {
+                String pattern = "%" + username.toLowerCase() + "%";
+                predicates.add(cb.like(cb.lower(root.get("username")), pattern));
+            }
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     /**

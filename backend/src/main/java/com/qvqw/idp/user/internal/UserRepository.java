@@ -1,19 +1,22 @@
 package com.qvqw.idp.user.internal;
 
 import com.qvqw.idp.user.User;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.List;
 import java.util.Optional;
 
 /**
  * 用户实体的 JPA Repository。
+ *
+ * <p>同时继承 {@link JpaSpecificationExecutor}，便于 Service 层在 “用户名 / 状态” 这类
+ * 可空多条件场景下，使用 Criteria API 动态拼装 {@code where} 子句。这样可以避免在 JPQL
+ * 中通过 {@code (:param is null or ...)} 的写法把 {@code null} 参数下推到数据库，
+ * 进而规避 Hibernate 7 + PostgreSQL 在某些 {@code null} 参数推断为 {@code bytea} 导致
+ * {@code lower(bytea) does not exist} 的错误。</p>
  */
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
 
     /**
      * 按用户名精确查找（用户名全局唯一）。
@@ -30,18 +33,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return 存在返回 {@code true}
      */
     boolean existsByUsername(String username);
-
-    /**
-     * 用户名 + 状态的可选过滤分页查询。
-     *
-     * @param username 用户名关键字（{@code null} 时不过滤）
-     * @param status   状态（{@code null} 时不过滤）
-     * @param pageable 分页参数
-     * @return 用户分页
-     */
-    @Query("select u from User u where (:username is null or lower(u.username) like lower(concat('%', :username, '%'))) " +
-            "and (:status is null or u.status = :status)")
-    Page<User> search(@Param("username") String username, @Param("status") Integer status, Pageable pageable);
 
     /**
      * 按 ID 列表批量获取用户。

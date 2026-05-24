@@ -1,17 +1,20 @@
 package com.qvqw.idp.role.internal;
 
 import com.qvqw.idp.role.Role;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.List;
 import java.util.Optional;
 
 /**
  * 角色实体的 JPA Repository。
+ *
+ * <p>继承 {@link JpaSpecificationExecutor} 以支持 Service 层用 Criteria API 拼装
+ * 多条件可空的分页查询，规避 Hibernate 7 + PostgreSQL 在 {@code (:param is null or ...)}
+ * 写法下 null 参数被识别为 {@code bytea} 的兼容性问题。</p>
  */
-public interface RoleRepository extends JpaRepository<Role, Long> {
+public interface RoleRepository extends JpaRepository<Role, Long>, JpaSpecificationExecutor<Role> {
 
     /**
      * 按编码精确查找。
@@ -28,16 +31,6 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
      * @return 存在返回 {@code true}
      */
     boolean existsByCode(String code);
-
-    /**
-     * 同时按 name 和 code 模糊匹配的分页查询。
-     *
-     * @param name     name 关键字（忽略大小写）
-     * @param code     code 关键字（忽略大小写）
-     * @param pageable 分页参数
-     * @return 角色分页
-     */
-    Page<Role> findByNameContainingIgnoreCaseOrCodeContainingIgnoreCase(String name, String code, Pageable pageable);
 
     /**
      * 按 sort 升序列出所有角色。
