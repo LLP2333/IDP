@@ -1,5 +1,6 @@
 package com.qvqw.idp.auth.internal;
 
+import com.qvqw.idp.auth.OnlineTouchEvent;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qvqw.idp.common.security.UserContext;
@@ -12,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -61,15 +63,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final RoleService roleService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     public JwtAuthenticationFilter(JwtTokenProvider tokenProvider,
                                    TokenStore tokenStore,
                                    RoleService roleService,
+                                   ApplicationEventPublisher eventPublisher,
                                    @Autowired(required = false) StringRedisTemplate redisTemplate,
                                    @Autowired(required = false) ObjectMapper objectMapper) {
         this.tokenProvider = tokenProvider;
         this.tokenStore = tokenStore;
         this.roleService = roleService;
+        this.eventPublisher = eventPublisher;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
     }
@@ -85,6 +90,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (!tokenStore.exists(parsed.jti())) {
                     log.debug("JWT jti 已失效: {}", parsed.jti());
                 } else {
+                    eventPublisher.publishEvent(new OnlineTouchEvent(token));
                     Set<String> roleCodes = loadRoleCodes(parsed.userId());
                     Set<String> permissionCodes = loadPermissionCodes(parsed.userId());
                     UserContext context = new UserContext(parsed.userId(), parsed.username(), null,

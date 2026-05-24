@@ -30,6 +30,9 @@ frontend/
 │   │   │   ├── profile/
 │   │   │   │   └── page.tsx              # 个人中心：基本信息 + 安全设置（含修改密码）
 │   │   │   ├── message/page.tsx          # 站内消息中心（普通用户视角）
+│   │   │   ├── monitor/
+│   │   │   │   ├── online/page.tsx       # 在线用户
+│   │   │   │   └── log/page.tsx          # 系统日志（登录日志 / 操作日志）
 │   │   │   └── system/
 │   │   │       ├── user/page.tsx         # 用户管理
 │   │   │       ├── role/page.tsx         # 角色管理 + 分配菜单
@@ -103,6 +106,7 @@ API 客户端文件 → 后端接口对应：
 | `lib/api/dict.ts` | `GET /system/dict/list`、`GET/POST/PUT/DELETE /system/dict` 与 `/system/dict/{dictId}/item` 系列、公开 `GET /system/dict/{code}/item` |
 | `lib/api/notice.ts` | `GET/POST/PUT/DELETE /system/notice` + `/popup`、`/{id}/read`、`/dashboard` |
 | `lib/api/message.ts` | `GET /system/message` 分页、`/unread-count`、`POST /system/message/{id}/read` 与 `/read-all` |
+| `lib/api/monitor.ts` | `GET/DELETE /monitor/online`、`GET /system/log`、`GET /system/log/{id}` 与日志导出 |
 
 ## 常用脚本
 
@@ -177,6 +181,16 @@ API 客户端文件 → 后端接口对应：
 - **登录弹窗 `NoticePopup`**：在 `/admin/layout.tsx` 内首次进入时 fetch `/system/notice/popup`，命中则用 Modal 依次展示；会话内通过 `sessionStorage` 记录已展示 ID 防重复弹出。
 - **顶栏未读数 `NotificationBell`**：拉 `/system/message/unread-count` + 最近 5 条消息，点击消息会跳转 `message.path` 并自动 `read(id)`。详见 [`../docs/message.md`](../docs/message.md)。
 - **Dashboard 卡片**：`/admin` 概览页新增 “最新公告” 卡片，数据来自 `/system/notice/dashboard`。
+
+## 系统监控 `/admin/monitor/*`
+
+监控功能参考 continew-admin-ui 的在线用户、登录日志、操作日志页面，由后端 `MenuSeeder` 初始化 “系统监控” 目录：
+
+- `/admin/monitor/online`：在线用户列表，支持用户名/昵称、登录时间过滤；具备 `monitor:online:kickout` 时可强退其他会话；
+- `/admin/monitor/log`：系统日志页面，包含 “登录日志 / 操作日志” 双 Tab；支持状态、时间、操作人、IP 等条件筛选；
+- 日志导出复用 `http.download`，当前后端返回 CSV 文件。
+
+详细设计、接口与测试覆盖见 [`../docs/monitor.md`](../docs/monitor.md)。
 
 ## 已知 breaking change（v2 菜单改造）
 

@@ -69,6 +69,14 @@ public class MenuSeeder implements CommandLineRunner {
         Menu noticeMenu = ensureMenu("通知公告", systemDir.getId(),
                 "/admin/system/notice", "Notice", "system/notice/index", "bell",
                 160, "通知公告菜单");
+        Menu monitorDir = ensureDir("系统监控", "/monitor", "Monitor", "Layout", "computer",
+                200, "系统监控一级目录");
+        Menu onlineMenu = ensureMenu("在线用户", monitorDir.getId(),
+                "/admin/monitor/online", "MonitorOnline", "monitor/online/index", "user",
+                210, "在线用户菜单");
+        Menu logMenu = ensureMenu("系统日志", monitorDir.getId(),
+                "/admin/monitor/log", "MonitorLog", "monitor/log/index", "history",
+                220, "系统日志菜单");
 
         // 老库迁移：早期版本曾把 “安全配置 / 登录配置” 建成 type=2 子菜单，
         // 现在统一收编到 “网站配置” 下。把它们的子按钮 reparent 到 siteMenu，再删除多余菜单。
@@ -115,7 +123,14 @@ public class MenuSeeder implements CommandLineRunner {
                         new ButtonDef("system:notice:list", "查询公告"),
                         new ButtonDef("system:notice:add", "新增公告"),
                         new ButtonDef("system:notice:update", "修改公告"),
-                        new ButtonDef("system:notice:delete", "删除公告"))));
+                        new ButtonDef("system:notice:delete", "删除公告"))),
+                new MenuButtons(onlineMenu, List.of(
+                        new ButtonDef("monitor:online:list", "查询在线用户"),
+                        new ButtonDef("monitor:online:kickout", "强退在线用户"))),
+                new MenuButtons(logMenu, List.of(
+                        new ButtonDef("monitor:log:list", "查询系统日志"),
+                        new ButtonDef("monitor:log:get", "日志详情"),
+                        new ButtonDef("monitor:log:export", "导出系统日志"))));
 
         int sort = 1000;
         int created = 0;
@@ -260,6 +275,8 @@ public class MenuSeeder implements CommandLineRunner {
                 "system:securityConfig:get", "system:securityConfig:update",
                 "system:loginConfig:get", "system:loginConfig:update",
                 "system:dict:list", "system:dict:add", "system:dict:update", "system:dict:delete",
-                "system:notice:list", "system:notice:add", "system:notice:update", "system:notice:delete"));
+                "system:notice:list", "system:notice:add", "system:notice:update", "system:notice:delete",
+                "monitor:online:list", "monitor:online:kickout",
+                "monitor:log:list", "monitor:log:get", "monitor:log:export"));
     }
 }

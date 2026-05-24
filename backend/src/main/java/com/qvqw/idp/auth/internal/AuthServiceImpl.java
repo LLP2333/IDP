@@ -1,6 +1,8 @@
 package com.qvqw.idp.auth.internal;
 
 import com.qvqw.idp.auth.AuthService;
+import com.qvqw.idp.auth.LoginAuditEvent;
+import com.qvqw.idp.auth.OnlineLoginEvent;
 import com.qvqw.idp.auth.model.req.LoginReq;
 import com.qvqw.idp.auth.model.resp.LoginResp;
 import com.qvqw.idp.auth.model.resp.UserInfoResp;
@@ -15,8 +17,10 @@ import com.qvqw.idp.role.RoleService;
 import com.qvqw.idp.user.UserService;
 import com.qvqw.idp.user.model.resp.UserDetailResp;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -50,6 +54,7 @@ public class AuthServiceImpl implements AuthService {
     private final TokenStore tokenStore;
     private final OptionService optionService;
     private final CaptchaService captchaService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AuthServiceImpl(UserService userService,
                            RoleService roleService,
@@ -58,7 +63,8 @@ public class AuthServiceImpl implements AuthService {
                            JwtTokenProvider tokenProvider,
                            TokenStore tokenStore,
                            OptionService optionService,
-                           CaptchaService captchaService) {
+                           CaptchaService captchaService,
+                           ApplicationEventPublisher eventPublisher) {
         this.userService = userService;
         this.roleService = roleService;
         this.menuService = menuService;
@@ -67,55 +73,65 @@ public class AuthServiceImpl implements AuthService {
         this.tokenStore = tokenStore;
         this.optionService = optionService;
         this.captchaService = captchaService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
-    public LoginResp login(LoginReq req) {
-        boolean captchaEnabled = optionService.getIntOrDefault("LOGIN_CAPTCHA_ENABLED", 0) == 1;
-        if (captchaEnabled) {
-            captchaService.consume(req.getCaptchaId(), req.getCaptcha());
-        }
-        UserService.UserCredential credential = userService.findCredential(req.getUsername())
-                .orElseThrow(() -> new BusinessException("用户名或密码错误"));
-        // 锁定窗口内直接拒绝
-        if (credential.pwdLockedUntil() != null && credential.pwdLockedUntil().isAfter(LocalDateTime.now())) {
-            long minutes = Math.max(1, Duration.between(LocalDateTime.now(), credential.pwdLockedUntil()).toMinutes());
-            throw new BusinessException("账号已锁定，请 %d 分钟后再试".formatted(minutes));
-        }
-        if (credential.status() == null || credential.status() != 1) {
-            throw new BusinessException("账号已被禁用");
-        }
-        if (!passwordEncoder.matches(req.getPassword(), credential.passwordHash())) {
-            int maxCount = optionService.getIntOrDefault(PasswordPolicy.PASSWORD_ERROR_LOCK_COUNT.name(), 0);
-            int lockMinutes = optionService.getIntOrDefault(PasswordPolicy.PASSWORD_ERROR_LOCK_MINUTES.name(), 5);
-            LocalDateTime lockUntil = (maxCount > 0)
-                    ? LocalDateTime.now().plusMinutes(Math.max(1, lockMinutes))
-                    : null;
-            int current = userService.increasePwdErrorCount(credential.id(), maxCount, lockUntil);
-            if (maxCount > 0 && current >= maxCount) {
-                throw new BusinessException("密码错误次数过多，账号已锁定 %d 分钟".formatted(Math.max(1, lockMinutes)));
+    public LoginResp login(LoginReq req, HttpServletRequest request) {
+        try {
+            boolean captchaEnabled = optionService.getIntOrDefault("LOGIN_CAPTCHA_ENABLED", 0) == 1;
+            if (captchaEnabled) {
+                captchaService.consume(req.getCaptchaId(), req.getCaptcha());
             }
-            throw new BusinessException("用户名或密码错误");
-        }
-        // 成功：清零失败计数 + 解锁
-        userService.resetPwdErrorAndUnlock(credential.id());
-        JwtTokenProvider.IssuedToken issued = tokenProvider.issue(credential.id(), credential.username());
-        tokenStore.put(issued.jti(), issued.userId(), tokenProvider.getExpires());
-        LoginResp resp = new LoginResp(issued.token(), tokenProvider.getExpires());
-        // 密码到期计算
-        int expirationDays = optionService.getIntOrDefault(PasswordPolicy.PASSWORD_EXPIRATION_DAYS.name(), 0);
-        int warningDays = optionService.getIntOrDefault(PasswordPolicy.PASSWORD_EXPIRATION_WARNING_DAYS.name(), 0);
-        if (expirationDays > 0 && credential.pwdResetAt() != null) {
-            long daysSince = Duration.between(credential.pwdResetAt(), LocalDateTime.now()).toDays();
-            long remaining = expirationDays - daysSince;
-            resp.setPasswordExpiresInDays(Math.max(0, remaining));
-            if (remaining <= 0) {
-                resp.setPasswordExpired(true);
-            } else if (warningDays > 0 && remaining <= warningDays) {
-                resp.setPasswordWarning(true);
+            UserService.UserCredential credential = userService.findCredential(req.getUsername())
+                    .orElseThrow(() -> new BusinessException("用户名或密码错误"));
+            // 锁定窗口内直接拒绝
+            if (credential.pwdLockedUntil() != null && credential.pwdLockedUntil().isAfter(LocalDateTime.now())) {
+                long minutes = Math.max(1, Duration.between(LocalDateTime.now(), credential.pwdLockedUntil()).toMinutes());
+                throw new BusinessException("账号已锁定，请 %d 分钟后再试".formatted(minutes));
             }
+            if (credential.status() == null || credential.status() != 1) {
+                throw new BusinessException("账号已被禁用");
+            }
+            if (!passwordEncoder.matches(req.getPassword(), credential.passwordHash())) {
+                int maxCount = optionService.getIntOrDefault(PasswordPolicy.PASSWORD_ERROR_LOCK_COUNT.name(), 0);
+                int lockMinutes = optionService.getIntOrDefault(PasswordPolicy.PASSWORD_ERROR_LOCK_MINUTES.name(), 5);
+                LocalDateTime lockUntil = (maxCount > 0)
+                        ? LocalDateTime.now().plusMinutes(Math.max(1, lockMinutes))
+                        : null;
+                int current = userService.increasePwdErrorCount(credential.id(), maxCount, lockUntil);
+                if (maxCount > 0 && current >= maxCount) {
+                    throw new BusinessException("密码错误次数过多，账号已锁定 %d 分钟".formatted(Math.max(1, lockMinutes)));
+                }
+                throw new BusinessException("用户名或密码错误");
+            }
+            // 成功：清零失败计数 + 解锁
+            userService.resetPwdErrorAndUnlock(credential.id());
+            JwtTokenProvider.IssuedToken issued = tokenProvider.issue(credential.id(), credential.username());
+            tokenStore.put(issued.jti(), issued.userId(), tokenProvider.getExpires());
+            UserDetailResp detail = userService.findById(credential.id()).orElse(null);
+            eventPublisher.publishEvent(new OnlineLoginEvent(issued.token(), issued.jti(), credential.id(),
+                    credential.username(), detail == null ? null : detail.getNickname(), request));
+            eventPublisher.publishEvent(new LoginAuditEvent(credential.username(), true, null, request));
+            LoginResp resp = new LoginResp(issued.token(), tokenProvider.getExpires());
+            // 密码到期计算
+            int expirationDays = optionService.getIntOrDefault(PasswordPolicy.PASSWORD_EXPIRATION_DAYS.name(), 0);
+            int warningDays = optionService.getIntOrDefault(PasswordPolicy.PASSWORD_EXPIRATION_WARNING_DAYS.name(), 0);
+            if (expirationDays > 0 && credential.pwdResetAt() != null) {
+                long daysSince = Duration.between(credential.pwdResetAt(), LocalDateTime.now()).toDays();
+                long remaining = expirationDays - daysSince;
+                resp.setPasswordExpiresInDays(Math.max(0, remaining));
+                if (remaining <= 0) {
+                    resp.setPasswordExpired(true);
+                } else if (warningDays > 0 && remaining <= warningDays) {
+                    resp.setPasswordWarning(true);
+                }
+            }
+            return resp;
+        } catch (RuntimeException ex) {
+            eventPublisher.publishEvent(new LoginAuditEvent(req.getUsername(), false, ex.getMessage(), request));
+            throw ex;
         }
-        return resp;
     }
 
     @Override

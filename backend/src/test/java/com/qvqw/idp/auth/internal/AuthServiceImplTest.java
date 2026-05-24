@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
@@ -62,6 +63,9 @@ class AuthServiceImplTest {
     @Mock
     private CaptchaService captchaService;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private JwtTokenProvider tokenProvider;
 
     private AuthServiceImpl authService;
@@ -73,7 +77,7 @@ class AuthServiceImplTest {
         props.getJwt().setExpires(60);
         tokenProvider = new JwtTokenProvider(props);
         authService = new AuthServiceImpl(userService, roleService, menuService, passwordEncoder,
-                tokenProvider, tokenStore, optionService, captchaService);
+                tokenProvider, tokenStore, optionService, captchaService, eventPublisher);
         // 默认关闭验证码，便于现有 case 简化
         when(optionService.getIntOrDefault(eq("LOGIN_CAPTCHA_ENABLED"), anyInt())).thenReturn(0);
         when(optionService.getIntOrDefault(anyString(), anyInt())).thenReturn(0);
@@ -94,7 +98,7 @@ class AuthServiceImplTest {
         LoginReq req = new LoginReq();
         req.setUsername("admin");
         req.setPassword("123456");
-        LoginResp resp = authService.login(req);
+        LoginResp resp = authService.login(req, null);
 
         assertThat(resp.getToken()).isNotBlank();
         assertThat(resp.getExpires()).isEqualTo(60);
@@ -112,7 +116,7 @@ class AuthServiceImplTest {
         LoginReq req = new LoginReq();
         req.setUsername("admin");
         req.setPassword("wrong");
-        assertThatThrownBy(() -> authService.login(req))
+        assertThatThrownBy(() -> authService.login(req, null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("用户名或密码错误");
         verify(userService).increasePwdErrorCount(eq(1L), anyInt(), any());
@@ -127,7 +131,7 @@ class AuthServiceImplTest {
         LoginReq req = new LoginReq();
         req.setUsername("admin");
         req.setPassword("123456");
-        assertThatThrownBy(() -> authService.login(req))
+        assertThatThrownBy(() -> authService.login(req, null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("账号已被禁用");
     }
@@ -141,7 +145,7 @@ class AuthServiceImplTest {
         LoginReq req = new LoginReq();
         req.setUsername("admin");
         req.setPassword("123456");
-        assertThatThrownBy(() -> authService.login(req))
+        assertThatThrownBy(() -> authService.login(req, null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("账号已锁定");
     }
@@ -159,7 +163,7 @@ class AuthServiceImplTest {
         req.setPassword("123456");
         req.setCaptchaId("cid");
         req.setCaptcha("ABCD");
-        authService.login(req);
+        authService.login(req, null);
         verify(captchaService).consume("cid", "ABCD");
     }
 

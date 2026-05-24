@@ -4,6 +4,7 @@ import com.qvqw.idp.auth.model.req.LoginReq;
 import com.qvqw.idp.auth.model.resp.LoginResp;
 import com.qvqw.idp.auth.model.resp.UserInfoResp;
 import com.qvqw.idp.menu.model.resp.MenuResp;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
 
@@ -12,7 +13,7 @@ import java.util.List;
  */
 public interface AuthService {
 
-    LoginResp login(LoginReq req);
+    LoginResp login(LoginReq req, HttpServletRequest request);
 
     void logout(String jti);
 

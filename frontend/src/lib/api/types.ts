@@ -487,3 +487,68 @@ export interface MessagePageQuery {
   page?: number;
   size?: number;
 }
+
+// ============== monitor ==============
+
+/** 在线用户列表项。 */
+export interface OnlineUserResp {
+  token: string;
+  username: string;
+  nickname: string | null;
+  ip: string | null;
+  address: string | null;
+  browser: string | null;
+  os: string | null;
+  loginTime: string;
+  lastActiveTime: string | null;
+}
+
+/** 在线用户分页查询条件。 */
+export interface OnlineUserPageQuery {
+  nickname?: string;
+  loginTime?: string[];
+  sort?: string[];
+  page?: number;
+  size?: number;
+}
+
+/** 系统日志列表项。 */
+export interface LogResp {
+  id: string;
+  description: string | null;
+  module: string | null;
+  timeTaken: number;
+  ip: string | null;
+  address: string | null;
+  browser: string | null;
+  os: string | null;
+  status: number;
+  errorMsg: string | null;
+  createUserString: string | null;
+  createTime: string;
+}
+
+/** 系统日志详情。 */
+export interface LogDetailResp extends LogResp {
+  traceId: string | null;
+  requestUrl: string | null;
+  requestMethod: string | null;
+  requestHeaders: string | null;
+  requestBody: string | null;
+  statusCode: number | null;
+  responseHeaders: string | null;
+  responseBody: string | null;
+}
+
+/** 系统日志分页 / 导出查询条件。 */
+export interface LogPageQuery {
+  description?: string;
+  module?: string;
+  ip?: string;
+  createUserString?: string;
+  createTime?: string[];
+  status?: number;
+  sort?: string[];
+  page?: number;
+  size?: number;
+}

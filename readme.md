@@ -82,6 +82,7 @@ pnpm dev
 | 角色管理 | 角色 CRUD、按 code 唯一约束、分配菜单 | [`docs/user-role.md`](docs/user-role.md) |
 | 菜单管理 | 目录 / 菜单 / 按钮三层结构、`@HasPermission` AOP、前端动态侧边栏、PermissionGuard | [`docs/menu.md`](docs/menu.md) |
 | 系统配置 | 网站配置 / 安全（密码策略）/ 登录（验证码） | [`docs/system-config.md`](docs/system-config.md) |
+| 系统监控 | 在线用户、强退、登录日志、操作日志、日志导出 | [`docs/monitor.md`](docs/monitor.md) |
 
 ---
 

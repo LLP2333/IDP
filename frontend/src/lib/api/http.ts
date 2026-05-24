@@ -63,6 +63,14 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
   skipUnauthorizedHandler?: boolean;
 }
 
+/** 文件下载请求选项。 */
+export interface DownloadOptions extends Omit<RequestInit, "body"> {
+  /** Query 参数会被序列化拼到 URL 后 */
+  query?: Record<string, unknown>;
+  /** 默认下载文件名，服务端未返回 Content-Disposition 时使用 */
+  filename?: string;
+}
+
 /**
  * 将单个原始值转为 query string 片段；空值返回 `null` 表示丢弃该字段。
  *
@@ -188,6 +196,58 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   return json.data;
 }
 
+function resolveDownloadFilename(response: Response, fallback: string): string {
+  const disposition = response.headers.get("content-disposition");
+  if (!disposition) return fallback;
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+  if (encoded) return decodeURIComponent(encoded);
+  const plain = /filename="?([^";]+)"?/i.exec(disposition)?.[1];
+  return plain ? decodeURIComponent(plain) : fallback;
+}
+
+/**
+ * 下载文件并触发浏览器保存。
+ *
+ * 复用普通请求的鉴权与 401 处理，但不解析 `R<T>` JSON 包装，适用于后端直接返回
+ * Excel / CSV / 二进制流的导出接口。
+ */
+export async function download(path: string, options: DownloadOptions = {}): Promise<void> {
+  const { query, headers, filename = "download", ...rest } = options;
+  const url = buildUrl(getBaseUrl(), path, query);
+
+  const finalHeaders = new Headers(headers ?? {});
+  const token = getToken();
+  if (token && !finalHeaders.has("Authorization")) {
+    finalHeaders.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(url, {
+    ...rest,
+    method: rest.method ?? "GET",
+    headers: finalHeaders,
+  });
+
+  if (response.status === 401) {
+    if (onUnauthorized) onUnauthorized();
+    throw new HttpError(401, "未登录或登录已过期", 401);
+  }
+
+  if (!response.ok) {
+    throw new HttpError(response.status, `下载失败: ${response.status}`, response.status);
+  }
+
+  const blob = await response.blob();
+  if (typeof window === "undefined") return;
+  const href = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = href;
+  link.download = resolveDownloadFilename(response, filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(href);
+}
+
 /**
  * 各种动词的便捷封装。
  *
@@ -213,4 +273,6 @@ export const http = {
   /** DELETE 请求；`body` 会被 JSON 序列化（后端批量删除接口约定使用 JSON body）。 */
   del: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>(path, { ...options, method: "DELETE", body }),
+  /** 文件下载请求。 */
+  download,
 };

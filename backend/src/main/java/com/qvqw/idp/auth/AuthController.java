@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.util.StringUtils;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,13 +38,16 @@ public class AuthController {
     private final AuthService authService;
     private final JwtTokenProvider jwtTokenProvider;
     private final CaptchaService captchaService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AuthController(AuthService authService,
                           JwtTokenProvider jwtTokenProvider,
-                          CaptchaService captchaService) {
+                          CaptchaService captchaService,
+                          ApplicationEventPublisher eventPublisher) {
         this.authService = authService;
         this.jwtTokenProvider = jwtTokenProvider;
         this.captchaService = captchaService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -56,8 +60,8 @@ public class AuthController {
             description = "成功后返回 JWT 字符串与过期时间（秒）；如 LOGIN_CAPTCHA_ENABLED=1 需同时传 captchaId/captcha")
     @SecurityRequirements
     @PostMapping("/login")
-    public R<LoginResp> login(@RequestBody @Valid LoginReq req) {
-        return R.ok(authService.login(req));
+    public R<LoginResp> login(@RequestBody @Valid LoginReq req, HttpServletRequest request) {
+        return R.ok(authService.login(req, request));
     }
 
     /**
@@ -90,6 +94,7 @@ public class AuthController {
             try {
                 JwtTokenProvider.ParsedToken parsed = jwtTokenProvider.parse(token);
                 authService.logout(parsed.jti());
+                eventPublisher.publishEvent(new OnlineLogoutEvent(token));
             } catch (Exception ignore) {
             }
         }

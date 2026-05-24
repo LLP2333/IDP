@@ -12,11 +12,13 @@ import {
   FileText,
   Folder,
   Globe,
+  History,
   KeyRound,
   LayoutDashboard,
   type LucideIcon,
   LogIn,
   LogOut,
+  MonitorCog,
   Menu as MenuIcon,
   Settings,
   Shield,
@@ -66,7 +68,10 @@ const ICON_MAP: Record<string, LucideIcon> = {
   file: FileText,
   banknote: Banknote,
   chart: BarChart3,
+  computer: MonitorCog,
   external: ExternalLink,
+  history: History,
+  monitor: MonitorCog,
 };
 
 function resolveIcon(icon: string | null | undefined): LucideIcon | null {

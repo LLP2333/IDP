@@ -10,6 +10,7 @@ import {
 
 import {
   HttpError,
+  download,
   request,
   setTokenProvider,
   setUnauthorizedHandler,
@@ -106,5 +107,39 @@ describe("http.request", () => {
       code: 500,
       message: "用户名已存在",
     });
+  });
+});
+
+describe("http.download", () => {
+  it("下载文件时注入 token、拼接 query，并清理临时链接", async () => {
+    setTokenProvider(() => "tok-download");
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({
+        "content-disposition": "attachment; filename*=UTF-8''%E7%B3%BB%E7%BB%9F%E6%97%A5%E5%BF%97.csv",
+      }),
+      blob: async () => new Blob(["csv"], { type: "text/csv" }),
+    });
+    const revokeObjectURLMock = vi.fn();
+    const clickMock = vi.fn();
+    window.URL.createObjectURL = vi.fn(() => "blob:download");
+    window.URL.revokeObjectURL = revokeObjectURLMock;
+    HTMLAnchorElement.prototype.click = clickMock;
+
+    await download("/system/log/export/login", {
+      query: { module: "登录", empty: "" },
+      filename: "fallback.csv",
+    });
+
+    const fetchMock = global.fetch as unknown as Mock;
+    const url = fetchMock.mock.calls[0]![0] as string;
+    const init = fetchMock.mock.calls[0]![1] as RequestInit;
+    const headers = init.headers as Headers;
+    expect(url).toContain("module=%E7%99%BB%E5%BD%95");
+    expect(url).not.toContain("empty=");
+    expect(headers.get("Authorization")).toBe("Bearer tok-download");
+    expect(clickMock).toHaveBeenCalledOnce();
+    expect(revokeObjectURLMock).toHaveBeenCalledWith("blob:download");
   });
 });

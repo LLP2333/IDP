@@ -3,6 +3,7 @@ package com.qvqw.idp.auth.internal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qvqw.idp.auth.AuthProperties;
 import com.qvqw.idp.common.api.R;
+import org.springframework.context.ApplicationEventPublisher;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -88,7 +89,8 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   JwtAuthenticationFilter jwtFilter) throws Exception {
+                                                   JwtAuthenticationFilter jwtFilter,
+                                                   ApplicationEventPublisher eventPublisher) throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -101,7 +103,8 @@ public class SecurityConfig {
                 .exceptionHandling(eh -> eh
                         .authenticationEntryPoint(authenticationEntryPoint(objectMapper))
                         .accessDeniedHandler(accessDeniedHandler(objectMapper)))
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new AuditLogFilter(eventPublisher), JwtAuthenticationFilter.class);
         return http.build();
     }
 

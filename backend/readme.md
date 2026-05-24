@@ -56,6 +56,11 @@ com.qvqw.idp
 │   ├── MessageController          # /system/message/* 当前用户视角的分页 / 未读数 / 标已读
 │   ├── MessageService, Message, MessageLog
 │   └── internal/MessageServiceImpl, MessageRepository, MessageLogRepository
+├── monitor/                       # 系统监控
+│   ├── OnlineUserController       # /monitor/online 在线用户与强退
+│   ├── LogController              # /system/log 登录日志 / 操作日志查询与导出
+│   ├── OnlineUserService, LogService, OnlineSession, OperationLog
+│   └── internal/MonitorEventListener, OnlineUserServiceImpl, LogServiceImpl
 └── notice/                        # 通知公告（草稿 / 立即发布 / 定时发布）
     ├── NoticeController           # /system/notice/* CRUD + popup + read + dashboard
     ├── NoticeService, Notice, NoticeLog, NoticeScope/NoticeMethod/NoticeStatus
@@ -82,6 +87,7 @@ flowchart LR
   notice --> user
   notice --> message
   notice --> menu
+  monitor --> auth
   dict --> common
 ```
 
@@ -109,6 +115,8 @@ flowchart LR
 | `idp_sys_notice_log` | 公告已读日志 | `notice_id`, `user_id`（联合主键）, `read_time` |
 | `idp_sys_message` | 站内消息 | `type`, `title`, `content`, `path` |
 | `idp_sys_message_log` | 消息已读日志 | `message_id`, `user_id`（联合主键）, `read_time` |
+| `idp_mon_online_session` | 在线用户会话 | `token`, `jti`, `user_id`, `username`, `nickname`, `ip`, `browser`, `os`, `login_time`, `last_active_time` |
+| `idp_mon_log` | 登录 / 操作日志 | `trace_id`, `description`, `module`, `time_taken`, `ip`, `status`, `create_user_string`, `create_time`, `request_*`, `response_*` |
 
 启动时由 Seeder 幂等地创建默认数据：
 - `RoleSeeder`（@Order(10)）：角色 `admin`、`user`
@@ -169,8 +177,13 @@ flowchart LR
 | GET | `/system/message` | 当前用户消息分页 |
 | GET | `/system/message/unread-count` | 当前用户未读数（顶栏 bell） |
 | POST | `/system/message/{id}/read`、`/system/message/read-all` | 单条 / 全部已读 |
+| GET | `/monitor/online` | 在线用户分页 |
+| DELETE | `/monitor/online/{token}` | 强退在线用户 |
+| GET | `/system/log` | 登录日志 / 操作日志分页 |
+| GET | `/system/log/{id}` | 系统日志详情 |
+| GET | `/system/log/export/login`、`/system/log/export/operation` | 导出登录日志 / 操作日志 CSV |
 
-详细设计参见 [`../docs/auth.md`](../docs/auth.md)、[`../docs/user-role.md`](../docs/user-role.md)、[`../docs/system-config.md`](../docs/system-config.md)、[`../docs/menu.md`](../docs/menu.md)、[`../docs/dict.md`](../docs/dict.md)、[`../docs/notice.md`](../docs/notice.md) 与 [`../docs/message.md`](../docs/message.md)。
+详细设计参见 [`../docs/auth.md`](../docs/auth.md)、[`../docs/user-role.md`](../docs/user-role.md)、[`../docs/system-config.md`](../docs/system-config.md)、[`../docs/menu.md`](../docs/menu.md)、[`../docs/dict.md`](../docs/dict.md)、[`../docs/notice.md`](../docs/notice.md)、[`../docs/message.md`](../docs/message.md) 与 [`../docs/monitor.md`](../docs/monitor.md)。
 
 ## OpenAPI / Swagger UI
 
