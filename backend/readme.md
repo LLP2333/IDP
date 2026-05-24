@@ -36,18 +36,18 @@ com.qvqw.idp
 ├── option/                        # 系统配置
 │   ├── OptionService, OptionController, OptionCategory, PasswordPolicy
 │   └── internal/OptionRepository, OptionServiceImpl, OptionSeeder
-├── permission/                    # 权限模块
-│   ├── PermissionService, PermissionController, Permission
+├── menu/                          # 菜单模块（同时承担按钮权限职责）
+│   ├── MenuService, MenuController, Menu
 │   ├── annotation/@HasPermission              # NamedInterface
-│   └── internal/PermissionRepository, PermissionServiceImpl, PermissionAspect, PermissionSeeder
+│   └── internal/MenuRepository, MenuServiceImpl, MenuAspect, MenuSeeder
 ├── user/                          # 用户管理
 │   ├── UserController             # /system/user CRUD + 改密 + 分配角色
 │   ├── UserService, User, UserPasswordHistory
 │   └── internal/UserServiceImpl, UserRepository, UserPasswordHistoryRepository, PasswordValidator, AdminSeeder
 └── role/                          # 角色管理
-    ├── RoleController             # /system/role CRUD + 分配权限
-    ├── RoleService, Role, UserRole, RolePermission
-    └── internal/RoleServiceImpl, RoleRepository, UserRoleRepository, RolePermissionRepository, RoleSeeder, RolePermissionSeeder
+    ├── RoleController             # /system/role CRUD + 分配菜单
+    ├── RoleService, Role, UserRole, RoleMenu
+    └── internal/RoleServiceImpl, RoleRepository, UserRoleRepository, RoleMenuRepository, RoleSeeder, RoleMenuSeeder
 ```
 
 模块依赖：
@@ -57,22 +57,23 @@ flowchart LR
   auth --> user
   auth --> role
   auth --> option
+  auth --> menu
   auth --> common
   user --> role
   user --> option
   user --> common
-  role --> permission
+  role --> menu
   role --> common
-  permission --> common
+  menu --> common
   option --> common
 ```
 
 要点：
 
 - `common` 标注为 `@ApplicationModule(type = OPEN)`，子包 `api`、`exception`、`persistence`、`security`、`cache` 可被任意模块直接引用。
-- `UserContext / UserContextHolder` 放在 `common.security` 而非 `auth`，避免 `permission` AOP 反向依赖 `auth` 形成循环。
-- `permission.annotation` 通过 `package-info.java` 标注 `@NamedInterface("annotation")`，允许其他模块在 Controller 上使用 `@HasPermission`。
-- `option.model.resp`、`permission.model.resp`、`user.model.resp`、`role.model.resp` 均通过 `@NamedInterface("model")` 暴露给跨模块使用。
+- `UserContext / UserContextHolder` 放在 `common.security` 而非 `auth`，避免 `menu` AOP 反向依赖 `auth` 形成循环。
+- `menu.annotation` 通过 `package-info.java` 标注 `@NamedInterface("annotation")`，允许其他模块在 Controller 上使用 `@HasPermission`。
+- `option.model.resp`、`menu.model.resp`、`user.model.resp`、`role.model.resp` 均通过 `@NamedInterface("model")` 暴露给跨模块使用。
 
 ## 数据库表
 
@@ -83,17 +84,17 @@ flowchart LR
 | `idp_sys_user_role` | 用户-角色关联 | `user_id`, `role_id`（联合主键） |
 | `idp_sys_user_password_history` | 密码历史 | `user_id`, `password_hash`, `created_at`（用于 `PASSWORD_REPETITION_TIMES` 校验） |
 | `idp_sys_option` | 系统参数 | `category`, `code`, `option_value`, `default_value`, 联合唯一 `(category, code)` |
-| `idp_sys_permission` | 权限 | `code unique`, `name`, `type (1=菜单/2=按钮)`, `parent_id`, `sort`, `status`, `is_system` |
-| `idp_sys_role_permission` | 角色-权限关联 | `role_id`, `permission_id`（联合主键） |
+| `idp_sys_menu` | 菜单（同时承担按钮权限载体） | `title`, `parent_id`, `type (1=目录/2=菜单/3=按钮)`, `path`, `name`, `component`, `icon`, `is_external/is_cache/is_hidden`, `permission unique`, `sort`, `status`, `is_system` |
+| `idp_sys_role_menu` | 角色-菜单关联 | `role_id`, `menu_id`（联合主键） |
 
 启动时由 Seeder 幂等地创建默认数据：
-- `RoleSeeder`：角色 `admin`、`user`
-- `AdminSeeder`：默认账号 `admin / 123456`（首次启动后请尽快通过接口修改密码）
-- `PermissionSeeder`：约 21 条系统内置权限（菜单 + 按钮）
-- `RolePermissionSeeder`：把全部系统内置权限绑定到 `admin` 角色
-- `OptionSeeder`：15 条 SITE / PASSWORD / LOGIN 默认配置
+- `RoleSeeder`（@Order(10)）：角色 `admin`、`user`
+- `MenuSeeder`（@Order(15)）：1 目录 + 6 菜单 + 21 按钮，共 28 条系统内置菜单
+- `RoleMenuSeeder`（@Order(17)）：把全部系统内置菜单绑定到 `admin` 角色
+- `AdminSeeder`（@Order(20)）：默认账号 `admin / 123456`（首次启动后请尽快通过接口修改密码）
+- `OptionSeeder`（@Order(30)）：15 条 SITE / PASSWORD / LOGIN 默认配置
 
-> 若已有旧库（缺 `pwd_error_count` 等新列、或 `idp_sys_user_password_history` / `idp_sys_option` / `idp_sys_permission` / `idp_sys_role_permission` 等新表），可让 `ddl-auto=update` 自动加列建表；若环境不允许 DDL，请手工补齐。
+> **Breaking change（v2 改造）**：旧表 `idp_sys_permission` / `idp_sys_role_permission` 已下线，由 `idp_sys_menu` / `idp_sys_role_menu` 取代；字段结构变化无法通过 `ddl-auto=update` 平滑迁移，建议 `drop database idp;` 重建后让 Seeder 灌入；自定义角色的菜单绑定需要重新分配。
 
 ## 对外 API（核心）
 
@@ -102,6 +103,7 @@ flowchart LR
 | POST | `/auth/login` | 账号密码登录（可选验证码） → `{token, expires, passwordExpired?, passwordWarning?, passwordExpiresInDays?}` |
 | POST | `/auth/logout` | 注销当前 JWT |
 | GET | `/auth/user/info` | 当前登录用户信息（含按钮权限码） |
+| GET | `/auth/user/route` | 当前登录用户可见菜单树（前端动态侧边栏数据源） |
 | GET | `/auth/captcha` | 获取登录验证码 |
 | POST | `/system/user/password` | 当前用户自助改密 |
 | GET | `/system/user` | 用户分页（`page,size,username,status`） |
@@ -118,13 +120,14 @@ flowchart LR
 | PUT | `/system/role/{id}` | 修改角色 |
 | DELETE | `/system/role` | 批量删除（body：`{ids:[]}`） |
 | GET | `/system/role/{id}/user/id` | 角色下用户 ID 列表 |
-| GET | `/system/role/{id}/permission` | 角色权限 ID 列表 |
-| PUT | `/system/role/{id}/permission` | 设置角色权限（body：`{permissionIds:[]}`） |
-| GET | `/system/permission` | 权限平铺列表 |
-| GET | `/system/permission/tree` | 权限树 |
-| POST | `/system/permission` | 新增权限 |
-| PUT | `/system/permission/{id}` | 修改权限 |
-| DELETE | `/system/permission` | 批量删除（仅非内置） |
+| GET | `/system/role/{id}/menu` | 角色菜单 ID 列表（含按钮节点） |
+| PUT | `/system/role/{id}/menu` | 设置角色菜单（body：`{menuIds:[]}`，admin 角色不允许） |
+| GET | `/system/menu` | 菜单平铺列表 |
+| GET | `/system/menu/tree` | 菜单树 |
+| GET | `/system/menu/{id}` | 菜单详情 |
+| POST | `/system/menu` | 新增菜单（目录 / 菜单 / 按钮三种类型） |
+| PUT | `/system/menu/{id}` | 修改菜单（内置不可改 type/parentId/permission） |
+| DELETE | `/system/menu` | 批量删除（仅非内置；存在子节点拒绝） |
 | GET | `/system/option` | 系统参数列表 |
 | PUT | `/system/option` | 批量更新参数 |
 | PATCH | `/system/option/value` | 重置参数为默认值 |
@@ -132,7 +135,7 @@ flowchart LR
 | GET | `/system/option/site` | 公开站点配置（白名单） |
 | GET | `/system/option/login` | 公开登录配置（白名单） |
 
-详细设计参见 [`../docs/auth.md`](../docs/auth.md)、[`../docs/user-role.md`](../docs/user-role.md)、[`../docs/system-config.md`](../docs/system-config.md) 与 [`../docs/permission.md`](../docs/permission.md)。
+详细设计参见 [`../docs/auth.md`](../docs/auth.md)、[`../docs/user-role.md`](../docs/user-role.md)、[`../docs/system-config.md`](../docs/system-config.md) 与 [`../docs/menu.md`](../docs/menu.md)。
 
 ## OpenAPI / Swagger UI
 

@@ -9,7 +9,7 @@ import com.qvqw.idp.option.model.resp.LoginConfigResp;
 import com.qvqw.idp.option.model.resp.OptionImageUploadResp;
 import com.qvqw.idp.option.model.resp.OptionResp;
 import com.qvqw.idp.option.model.resp.SiteConfigResp;
-import com.qvqw.idp.permission.annotation.HasPermission;
+import com.qvqw.idp.menu.annotation.HasPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;

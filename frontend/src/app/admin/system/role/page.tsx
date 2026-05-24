@@ -9,7 +9,7 @@ import { KeySquare, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { PermissionTree } from "~/components/system/permission-tree";
+import { MenuTree } from "~/components/system/menu-tree";
 import { RoleForm, type RoleFormValues } from "~/components/system/role-form";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -18,10 +18,10 @@ import { Input } from "~/components/ui/input";
 import { Modal } from "~/components/ui/modal";
 import { Select } from "~/components/ui/select";
 import {
-  assignRolePermission,
-  getPermissionTree,
-  getRolePermission,
-} from "~/lib/api/permission";
+  assignRoleMenu,
+  getMenuTree,
+  getRoleMenu,
+} from "~/lib/api/menu";
 import { addRole, deleteRole, listRole, updateRole } from "~/lib/api/role";
 import { HttpError } from "~/lib/api/http";
 import { usePermission } from "~/lib/hooks/use-permission";
@@ -51,28 +51,28 @@ export default function RolePage() {
   const [assignIds, setAssignIds] = useState<number[]>([]);
 
   const treeQuery = useQuery({
-    queryKey: ["permission", "tree"],
-    queryFn: getPermissionTree,
+    queryKey: ["menu", "tree"],
+    queryFn: () => getMenuTree(),
     enabled: !!assignRole,
   });
-  const rolePermQuery = useQuery({
-    queryKey: ["role", "permission", assignRole?.id],
-    queryFn: () => (assignRole ? getRolePermission(assignRole.id) : Promise.resolve([])),
+  const roleMenuQuery = useQuery({
+    queryKey: ["role", "menu", assignRole?.id],
+    queryFn: () => (assignRole ? getRoleMenu(assignRole.id) : Promise.resolve([])),
     enabled: !!assignRole,
   });
   useEffect(() => {
-    if (rolePermQuery.data) setAssignIds(rolePermQuery.data);
-  }, [rolePermQuery.data]);
+    if (roleMenuQuery.data) setAssignIds(roleMenuQuery.data);
+  }, [roleMenuQuery.data]);
 
   const assignMutation = useMutation({
     mutationFn: (ids: number[]) => {
       if (!assignRole) throw new Error("未选择角色");
-      return assignRolePermission(assignRole.id, ids);
+      return assignRoleMenu(assignRole.id, ids);
     },
     onSuccess: () => {
-      toast.success("已保存角色权限");
+      toast.success("已保存角色菜单");
       setAssignRole(null);
-      void queryClient.invalidateQueries({ queryKey: ["role", "permission"] });
+      void queryClient.invalidateQueries({ queryKey: ["role", "menu"] });
     },
     onError: (err: unknown) =>
       toast.error(err instanceof HttpError ? err.message : "操作失败"),
@@ -180,7 +180,7 @@ export default function RolePage() {
                 setAssignIds([]);
               }}
             >
-              <KeySquare size={14} /> 分配权限
+              <KeySquare size={14} /> 分配菜单
             </Button>
           ) : null}
           <Button
@@ -325,7 +325,7 @@ export default function RolePage() {
       <Modal
         open={!!assignRole}
         onClose={() => setAssignRole(null)}
-        title={`分配权限 - ${assignRole?.name ?? ""}`}
+        title={`分配菜单 - ${assignRole?.name ?? ""}`}
         footer={
           <>
             <Button variant="outline" onClick={() => setAssignRole(null)}>
@@ -340,10 +340,10 @@ export default function RolePage() {
           </>
         }
       >
-        {treeQuery.isLoading || rolePermQuery.isLoading ? (
+        {treeQuery.isLoading || roleMenuQuery.isLoading ? (
           <div className="text-sm text-zinc-500">加载中…</div>
         ) : (
-          <PermissionTree
+          <MenuTree
             data={treeQuery.data ?? []}
             value={assignIds}
             onChange={setAssignIds}

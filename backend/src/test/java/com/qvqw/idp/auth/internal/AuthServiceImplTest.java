@@ -7,6 +7,8 @@ import com.qvqw.idp.auth.model.resp.UserInfoResp;
 import com.qvqw.idp.common.exception.BusinessException;
 import com.qvqw.idp.common.security.UserContext;
 import com.qvqw.idp.common.security.UserContextHolder;
+import com.qvqw.idp.menu.MenuService;
+import com.qvqw.idp.menu.model.resp.MenuResp;
 import com.qvqw.idp.option.OptionService;
 import com.qvqw.idp.role.RoleService;
 import com.qvqw.idp.user.UserService;
@@ -22,6 +24,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -45,6 +48,9 @@ class AuthServiceImplTest {
     private RoleService roleService;
 
     @Mock
+    private MenuService menuService;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
@@ -66,7 +72,7 @@ class AuthServiceImplTest {
         props.getJwt().setSecret("test-secret-test-secret-test-secret-test-secret");
         props.getJwt().setExpires(60);
         tokenProvider = new JwtTokenProvider(props);
-        authService = new AuthServiceImpl(userService, roleService, passwordEncoder,
+        authService = new AuthServiceImpl(userService, roleService, menuService, passwordEncoder,
                 tokenProvider, tokenStore, optionService, captchaService);
         // 默认关闭验证码，便于现有 case 简化
         when(optionService.getIntOrDefault(eq("LOGIN_CAPTCHA_ENABLED"), anyInt())).thenReturn(0);
@@ -178,5 +184,41 @@ class AuthServiceImplTest {
         assertThat(info.getUsername()).isEqualTo("admin");
         assertThat(info.getRoles()).containsExactly("admin");
         assertThat(info.getPermissions()).containsExactly("system:user:add", "system:user:list");
+    }
+
+    @Test
+    void getCurrentUserRouteAdminReturnsAllEnabled() {
+        UserContextHolder.set(new UserContext(1L, "admin", null, Set.of("admin"), Set.of()));
+        MenuResp m = new MenuResp();
+        m.setId(1L);
+        m.setTitle("系统管理");
+        m.setType(1);
+        when(menuService.treeAllEnabledRoutes()).thenReturn(List.of(m));
+
+        List<MenuResp> route = authService.getCurrentUserRoute();
+        assertThat(route).hasSize(1);
+        assertThat(route.get(0).getTitle()).isEqualTo("系统管理");
+    }
+
+    @Test
+    void getCurrentUserRouteNormalUserAggregatesMenus() {
+        UserContextHolder.set(new UserContext(7L, "ops", null, Set.of("ops"), Set.of("system:user:list")));
+        when(roleService.listRoleIdsByUserId(7L)).thenReturn(List.of(2L, 3L));
+        when(roleService.listMenuIdsByRoleId(2L)).thenReturn(List.of(10L, 11L));
+        when(roleService.listMenuIdsByRoleId(3L)).thenReturn(List.of(11L, 12L));
+        MenuResp m = new MenuResp();
+        m.setId(10L);
+        when(menuService.treeByIds(org.mockito.ArgumentMatchers.argThat(
+                set -> set != null && set.containsAll(java.util.Set.of(10L, 11L, 12L)))))
+                .thenReturn(List.of(m));
+
+        List<MenuResp> route = authService.getCurrentUserRoute();
+        assertThat(route).hasSize(1);
+    }
+
+    @Test
+    void getCurrentUserRouteNoLoginShouldThrow() {
+        assertThatThrownBy(() -> authService.getCurrentUserRoute())
+                .isInstanceOf(BusinessException.class);
     }
 }

@@ -76,6 +76,7 @@ sequenceDiagram
 | POST | `/auth/login` | 否 | body：`{ username, password, captchaId?, captcha? }`，返回 `{ token, expires, passwordExpired?, passwordWarning?, passwordExpiresInDays? }` |
 | POST | `/auth/logout` | 是 | 解析 `Authorization` 中的 jti 并删除 Redis 记录 |
 | GET | `/auth/user/info` | 是 | 返回当前登录用户基础信息、角色编码列表与按钮权限码列表 |
+| GET | `/auth/user/route` | 是 | 返回当前登录用户可见的菜单树（type=1/2，按 sort 排序）；admin 直返全部启用菜单，普通用户按角色聚合。前端动态侧边栏数据源，详见 [`docs/menu.md`](menu.md) |
 | GET | `/auth/captcha` | 否 | 返回 `{ captchaId, image, expiresIn }`，`image` 是 SVG 的 Data URL |
 | POST | `/system/user/password` | 是 | 当前用户自助改密：body `{ oldPassword, newPassword }`；走 `PasswordValidator` 校验 + 写历史 |
 

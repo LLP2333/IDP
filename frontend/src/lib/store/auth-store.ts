@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
 import { setTokenProvider, setUnauthorizedHandler } from "~/lib/api/http";
-import type { UserInfo } from "~/lib/api/types";
+import type { MenuResp, UserInfo } from "~/lib/api/types";
 
 /** localStorage 持久化 key。 */
 const STORAGE_KEY = "idp-auth";
@@ -17,12 +17,20 @@ interface AuthState {
   token: string | null;
   /** 当前登录用户信息；首次进入页面后异步加载。 */
   user: UserInfo | null;
+  /**
+   * 当前用户的动态菜单树（{@code GET /auth/user/route} 的结果，type=1/2）。
+   *
+   * 仅供侧边栏渲染使用，不做持久化（每次进入后台时按 token 重新拉取，保证数据新鲜）。
+   */
+  menuTree: MenuResp[] | null;
   /** 持久化恢复完成后置 true，避免 SSR 与首屏闪烁。 */
   hydrated: boolean;
   /** 设置 / 清空当前 JWT。 */
   setToken: (token: string | null) => void;
   /** 设置 / 清空当前登录用户信息。 */
   setUser: (user: UserInfo | null) => void;
+  /** 设置 / 清空当前用户的菜单树。 */
+  setMenuTree: (tree: MenuResp[] | null) => void;
   /** 清空登录态（不会主动调用后端 `/auth/logout`）。 */
   logout: () => void;
 }
@@ -39,10 +47,12 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       token: null,
       user: null,
+      menuTree: null,
       hydrated: false,
       setToken: (token) => set({ token }),
       setUser: (user) => set({ user }),
-      logout: () => set({ token: null, user: null }),
+      setMenuTree: (menuTree) => set({ menuTree }),
+      logout: () => set({ token: null, user: null, menuTree: null }),
     }),
     {
       name: STORAGE_KEY,

@@ -262,39 +262,78 @@ export interface LoginConfigResp {
   captchaEnabled: boolean;
 }
 
-// ============== permission ==============
+// ============== menu ==============
 
-/** 权限类型：1=菜单，2=按钮。 */
-export type PermissionType = 1 | 2;
+/**
+ * 菜单类型。
+ *
+ * - `1` 目录：纯分组节点，没有真实页面，仅用于前端侧边栏一级菜单分组。
+ * - `2` 菜单：对应前端一个路由 / 页面。
+ * - `3` 按钮：挂在菜单下的细粒度权限点，`permission` 字段存按钮权限码（如 `system:user:add`）。
+ */
+export type MenuType = 1 | 2 | 3;
 
-/** 权限项。 */
-export interface PermissionResp {
+/** 单条菜单（同时承担 “路由元数据 + 按钮权限” 双重角色）。 */
+export interface MenuResp {
   id: number;
-  code: string;
-  name: string;
-  type: PermissionType;
+  /** 标题（前端表格 / 侧边栏直接展示）。 */
+  title: string;
+  /** 父节点 ID，顶级为 0。 */
   parentId: number;
+  type: MenuType;
+  /** 路由地址（按钮类型为 `null`）。 */
+  path: string | null;
+  /** 组件名称（按钮类型为 `null`）。 */
+  name: string | null;
+  /** 组件路径（按钮类型为 `null`）。 */
+  component: string | null;
+  /** 重定向地址。 */
+  redirect: string | null;
+  /** 图标标识，前端按约定映射为 lucide 图标。 */
+  icon: string | null;
+  /** 是否外链；true 时 `path` 必须是 http(s) URL。 */
+  isExternal: boolean;
+  /** 是否启用 keep-alive 缓存（仅菜单类型有意义）。 */
+  isCache: boolean;
+  /** 是否在侧边栏隐藏（仍可访问，仅不显示）。 */
+  isHidden: boolean;
+  /** 按钮权限码，仅 type=3 节点；其他类型为 `null`。 */
+  permission: string | null;
   sort: number;
+  /** 状态：1=启用，0=禁用。 */
   status: number;
   isSystem: boolean;
   description: string | null;
-  children?: PermissionResp[];
+  createdAt: string;
+  updatedAt: string | null;
+  /** 子节点；仅在 tree 接口 / 动态路由接口返回时填充，平铺接口为空数组。 */
+  children?: MenuResp[];
 }
 
-/** 权限查询条件。 */
-export interface PermissionQuery {
-  keyword?: string;
+/** 菜单查询条件。 */
+export interface MenuQuery {
+  title?: string;
+  path?: string;
+  permission?: string;
   status?: number;
-  type?: PermissionType;
+  type?: MenuType;
 }
 
-/** 权限新增/修改请求。 */
-export interface PermissionReq {
-  code: string;
-  name: string;
-  type: PermissionType;
-  parentId?: number;
+/** 菜单新增 / 修改请求。 */
+export interface MenuReq {
+  title: string;
+  parentId: number;
+  type: MenuType;
+  path?: string | null;
+  name?: string | null;
+  component?: string | null;
+  redirect?: string | null;
+  icon?: string | null;
+  isExternal?: boolean;
+  isCache?: boolean;
+  isHidden?: boolean;
+  permission?: string | null;
   sort?: number;
   status?: number;
-  description?: string;
+  description?: string | null;
 }

@@ -4,7 +4,7 @@ import com.qvqw.idp.common.api.PageResp;
 import com.qvqw.idp.common.api.R;
 import com.qvqw.idp.common.exception.BusinessException;
 import com.qvqw.idp.common.security.UserContextHolder;
-import com.qvqw.idp.permission.annotation.HasPermission;
+import com.qvqw.idp.menu.annotation.HasPermission;
 import com.qvqw.idp.user.model.query.UserQuery;
 import com.qvqw.idp.user.model.req.UserCreateReq;
 import com.qvqw.idp.user.model.req.UserPasswordChangeReq;

@@ -43,23 +43,23 @@ public interface RoleService {
     void ensureRolesExist(List<Long> roleIds);
 
     /**
-     * 列出某角色绑定的全部权限 ID。
+     * 列出某角色绑定的全部菜单 ID（含目录 / 菜单 / 按钮）。
      *
      * @param roleId 角色 ID
-     * @return 权限 ID 列表
+     * @return 菜单 ID 列表
      */
-    List<Long> listPermissionIdsByRoleId(Long roleId);
+    List<Long> listMenuIdsByRoleId(Long roleId);
 
     /**
-     * 重新分配某角色的权限（全量覆盖）；admin 角色的权限不可改。
+     * 重新分配某角色的菜单（全量覆盖）；admin 角色不可改。
      *
-     * @param roleId        角色 ID
-     * @param permissionIds 权限 ID 列表
+     * @param roleId  角色 ID
+     * @param menuIds 菜单 ID 列表
      */
-    void assignPermissions(Long roleId, List<Long> permissionIds);
+    void assignMenus(Long roleId, List<Long> menuIds);
 
     /**
-     * 按用户 ID 聚合其全部角色对应的权限码（去重）。
+     * 按用户 ID 聚合其全部角色对应的按钮权限码（去重，仅含启用状态 type=3 节点的 permission 字段）。
      *
      * @param userId 用户 ID（可为 {@code null}）
      * @return 权限码集合（不可为 {@code null}）

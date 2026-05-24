@@ -2,9 +2,10 @@ package com.qvqw.idp.role.internal;
 
 import com.qvqw.idp.common.cache.AuthCacheEvictor;
 import com.qvqw.idp.common.exception.BusinessException;
-import com.qvqw.idp.permission.PermissionService;
+import com.qvqw.idp.menu.MenuService;
+import com.qvqw.idp.menu.model.resp.MenuResp;
 import com.qvqw.idp.role.Role;
-import com.qvqw.idp.role.RolePermission;
+import com.qvqw.idp.role.RoleMenu;
 import com.qvqw.idp.role.model.req.RoleReq;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,10 +17,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-import java.util.Set;
-
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,10 +40,10 @@ class RoleServiceImplTest {
     private UserRoleRepository userRoleRepository;
 
     @Mock
-    private RolePermissionRepository rolePermissionRepository;
+    private RoleMenuRepository roleMenuRepository;
 
     @Mock
-    private PermissionService permissionService;
+    private MenuService menuService;
 
     @Mock
     private AuthCacheEvictor authCacheEvictor;
@@ -137,51 +137,59 @@ class RoleServiceImplTest {
     }
 
     @Test
-    void assignPermissionsAdminShouldFail() {
+    void assignMenusAdminShouldFail() {
         Role admin = new Role();
         admin.setId(1L);
         admin.setCode("admin");
         when(roleRepository.findById(1L)).thenReturn(Optional.of(admin));
-        assertThatThrownBy(() -> roleService.assignPermissions(1L, List.of(10L)))
+        assertThatThrownBy(() -> roleService.assignMenus(1L, List.of(10L)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("admin 角色");
     }
 
     @Test
-    void assignPermissionsInvalidIdShouldFail() {
+    void assignMenusInvalidIdShouldFail() {
         Role role = new Role();
         role.setId(2L);
         role.setCode("ops");
         when(roleRepository.findById(2L)).thenReturn(Optional.of(role));
-        when(permissionService.listCodesByIds(List.of(10L, 20L))).thenReturn(Set.of("a"));
-        assertThatThrownBy(() -> roleService.assignPermissions(2L, List.of(10L, 20L)))
+        // 10L 合法，20L 不存在
+        MenuResp ok = new MenuResp();
+        ok.setId(10L);
+        when(menuService.get(10L)).thenReturn(ok);
+        when(menuService.get(20L)).thenThrow(new BusinessException("菜单不存在"));
+        assertThatThrownBy(() -> roleService.assignMenus(2L, List.of(10L, 20L)))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("无效的权限");
+                .hasMessageContaining("无效的菜单");
     }
 
     @Test
-    void assignPermissionsSuccess() {
+    void assignMenusSuccess() {
         Role role = new Role();
         role.setId(2L);
         role.setCode("ops");
         when(roleRepository.findById(2L)).thenReturn(Optional.of(role));
-        when(permissionService.listCodesByIds(List.of(10L, 20L)))
-                .thenReturn(Set.of("system:user:list", "system:user:add"));
+        MenuResp r1 = new MenuResp();
+        r1.setId(10L);
+        MenuResp r2 = new MenuResp();
+        r2.setId(20L);
+        when(menuService.get(10L)).thenReturn(r1);
+        when(menuService.get(20L)).thenReturn(r2);
         when(userRoleRepository.findUserIdsByRoleId(2L)).thenReturn(List.of(101L, 102L));
 
-        roleService.assignPermissions(2L, List.of(10L, 20L));
+        roleService.assignMenus(2L, List.of(10L, 20L));
 
-        verify(rolePermissionRepository).deleteByRoleId(2L);
-        verify(rolePermissionRepository).saveAll(anyList());
+        verify(roleMenuRepository).deleteByRoleId(2L);
+        verify(roleMenuRepository).saveAll(anyList());
         verify(authCacheEvictor).evictUsers(List.of(101L, 102L));
     }
 
     @Test
     void listPermissionCodesByUserIdAggregates() {
         when(userRoleRepository.findRoleIdsByUserId(7L)).thenReturn(List.of(1L, 2L));
-        when(rolePermissionRepository.findPermissionIdsByRoleIds(List.of(1L, 2L)))
+        when(roleMenuRepository.findMenuIdsByRoleIds(List.of(1L, 2L)))
                 .thenReturn(List.of(10L, 11L, 12L));
-        when(permissionService.listCodesByIds(List.of(10L, 11L, 12L)))
+        when(menuService.listCodesByIds(List.of(10L, 11L, 12L)))
                 .thenReturn(Set.of("system:user:list", "system:role:list"));
 
         assertThat(roleService.listPermissionCodesByUserId(7L))
@@ -189,7 +197,7 @@ class RoleServiceImplTest {
     }
 
     @Test
-    void deleteShouldAlsoUnbindRolePermissions() {
+    void deleteShouldAlsoUnbindRoleMenus() {
         Role role = new Role();
         role.setId(2L);
         role.setIsSystem(false);
@@ -198,11 +206,11 @@ class RoleServiceImplTest {
         when(userRoleRepository.countByRoleId(2L)).thenReturn(0L);
 
         roleService.delete(List.of(2L));
-        verify(rolePermissionRepository).deleteByRoleId(2L);
+        verify(roleMenuRepository).deleteByRoleId(2L);
         verify(roleRepository).deleteAllById(List.of(2L));
     }
 
     /** Mockito 占位以避免未使用警告。 */
     @SuppressWarnings("unused")
-    private RolePermission unused;
+    private RoleMenu unused;
 }

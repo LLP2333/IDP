@@ -2,7 +2,7 @@ package com.qvqw.idp.role;
 
 import com.qvqw.idp.common.api.PageResp;
 import com.qvqw.idp.common.api.R;
-import com.qvqw.idp.permission.annotation.HasPermission;
+import com.qvqw.idp.menu.annotation.HasPermission;
 import com.qvqw.idp.role.model.query.RoleQuery;
 import com.qvqw.idp.role.model.req.RoleReq;
 import com.qvqw.idp.role.model.resp.RoleResp;
@@ -138,30 +138,30 @@ public class RoleController {
     }
 
     /**
-     * 列出某角色绑定的权限 ID。
+     * 列出某角色绑定的菜单 ID。
      *
      * @param id 角色 ID
-     * @return 权限 ID 列表
+     * @return 菜单 ID 列表
      */
-    @Operation(summary = "查询角色权限", description = "返回角色已勾选的权限 ID 列表，admin 角色返回全部内置权限")
+    @Operation(summary = "查询角色菜单", description = "返回角色已勾选的菜单 ID 列表，admin 角色返回全部内置菜单")
     @HasPermission({"system:role:list", "system:role:assignPermission"})
-    @GetMapping("/{id}/permission")
-    public R<List<Long>> listPermission(@Parameter(description = "角色 ID") @PathVariable Long id) {
-        return R.ok(roleService.listPermissionIdsByRoleId(id));
+    @GetMapping("/{id}/menu")
+    public R<List<Long>> listMenu(@Parameter(description = "角色 ID") @PathVariable Long id) {
+        return R.ok(roleService.listMenuIdsByRoleId(id));
     }
 
     /**
-     * 重新分配角色权限。
+     * 重新分配角色菜单（含按钮）。
      *
      * @param id  角色 ID
-     * @param req 权限 ID 列表
+     * @param req 菜单 ID 列表
      */
-    @Operation(summary = "分配角色权限", description = "全量覆盖；传空列表代表清空权限。admin 角色不允许通过该接口修改")
+    @Operation(summary = "分配角色菜单", description = "全量覆盖；传空列表代表清空菜单。admin 角色不允许通过该接口修改")
     @HasPermission("system:role:assignPermission")
-    @PutMapping("/{id}/permission")
-    public R<Void> assignPermission(@Parameter(description = "角色 ID") @PathVariable Long id,
-                                    @RequestBody @Valid AssignPermissionReq req) {
-        roleService.assignPermissions(id, req.getPermissionIds());
+    @PutMapping("/{id}/menu")
+    public R<Void> assignMenu(@Parameter(description = "角色 ID") @PathVariable Long id,
+                              @RequestBody @Valid AssignMenuReq req) {
+        roleService.assignMenus(id, req.getMenuIds());
         return R.ok();
     }
 
@@ -185,20 +185,20 @@ public class RoleController {
     }
 
     /**
-     * 角色分配权限请求体。
+     * 角色分配菜单请求体。
      */
-    @Schema(description = "角色分配权限请求")
-    public static class AssignPermissionReq {
+    @Schema(description = "角色分配菜单请求")
+    public static class AssignMenuReq {
 
-        @Schema(description = "权限 ID 列表（空列表代表清空）", example = "[1,2,3]")
-        private List<Long> permissionIds;
+        @Schema(description = "菜单 ID 列表（空列表代表清空）", example = "[1,2,3]")
+        private List<Long> menuIds;
 
-        public List<Long> getPermissionIds() {
-            return permissionIds;
+        public List<Long> getMenuIds() {
+            return menuIds;
         }
 
-        public void setPermissionIds(List<Long> permissionIds) {
-            this.permissionIds = permissionIds;
+        public void setMenuIds(List<Long> menuIds) {
+            this.menuIds = menuIds;
         }
     }
 }

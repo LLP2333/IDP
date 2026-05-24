@@ -92,6 +92,13 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.username").value("admin"))
                 .andExpect(jsonPath("$.data.roles[0]").value("admin"));
 
+        // 携带 token 调用 user/route：admin 应至少返回一个顶级菜单
+        mockMvc.perform(get("/auth/user/route").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data[0].type").value(1));
+
         // 登出后 token 应失效
         mockMvc.perform(post("/auth/logout").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());

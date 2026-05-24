@@ -31,20 +31,20 @@ frontend/
 │   │   │   │   └── password/page.tsx     # 当前用户自助改密
 │   │   │   └── system/
 │   │   │       ├── user/page.tsx         # 用户管理
-│   │   │       ├── role/page.tsx         # 角色管理 + 分配权限
-│   │   │       ├── permission/page.tsx   # 权限树管理
+│   │   │       ├── role/page.tsx         # 角色管理 + 分配菜单
+│   │   │       ├── menu/page.tsx         # 菜单管理（树形表格 + type 联动弹窗）
 │   │   │       └── config/page.tsx       # 系统配置（SITE/PASSWORD/LOGIN Tab）
 │   │   ├── layout.tsx                    # 根 Layout（QueryProvider + Toaster）
 │   │   └── page.tsx                      # 入口：根据登录态跳 /login 或 /admin
 │   ├── components/
 │   │   ├── providers/query-provider.tsx
 │   │   ├── ui/                           # 基础组件（Button/Input/Modal/Tabs/Switch/UploadImage 等）
-│   │   ├── system/                       # 业务表单（user/role/permission-tree/三个配置表单）
+│   │   ├── system/                       # 业务表单（user/role/menu-tree/三个配置表单）
 │   │   └── permission-guard.tsx          # <PermissionGuard codes=[...]>
 │   ├── lib/
-│   │   ├── api/                          # http 封装 + auth/user/role/option/permission API + 类型
+│   │   ├── api/                          # http 封装 + auth/user/role/option/menu API + 类型
 │   │   ├── hooks/use-permission.ts       # 权限判断 Hook（admin 直通）
-│   │   ├── store/auth-store.ts           # zustand 持久化登录态（含 permissions）
+│   │   ├── store/auth-store.ts           # zustand 持久化登录态（含 menuTree 非持久字段）
 │   │   └── utils.ts                      # cn / apiUrl
 │   ├── styles/globals.css
 │   └── env.js                            # 环境变量校验（仅 NEXT_PUBLIC_API_BASE_URL）
@@ -86,7 +86,7 @@ API 客户端文件 → 后端接口对应：
 | `lib/api/user.ts` | `GET/POST/PUT/DELETE /system/user` 系列 + 重置密码 / 分配角色 |
 | `lib/api/role.ts` | `GET/POST/PUT/DELETE /system/role` 系列 |
 | `lib/api/option.ts` | `GET/PUT/PATCH /system/option`、`POST /system/option/image`、公开 `GET /system/option/site` 与 `/system/option/login` |
-| `lib/api/permission.ts` | `GET/POST/PUT/DELETE /system/permission` 系列 + `GET/PUT /system/role/{id}/permission` |
+| `lib/api/menu.ts` | `GET/POST/PUT/DELETE /system/menu` 系列 + `GET/PUT /system/role/{id}/menu` + `GET /auth/user/route`（前端动态侧边栏数据源） |
 
 ## 常用脚本
 
@@ -118,6 +118,24 @@ API 客户端文件 → 后端接口对应：
 5. **所有 `export` 的函数 / Hook / 组件 / 类型必须有中文 JSDoc**；组件 Props 接口的每个字段都要 `/** ... */` 行内注释；详见 `.cursor/rules/api-doc-comments.mdc`。
 6. **JSDoc 中如包含 `*/` 序列**（如 `**/model/*` 这种 glob）必须改写规避，否则 `tsc` 会报伪类型错误。
 
+## 侧边栏：动态菜单驱动
+
+`admin/layout.tsx` 在登录后调用 `GET /auth/user/route` 拉取用户可见菜单（{@code type=1} 目录、{@code type=2} 菜单按 sort 升序的树），按以下规则渲染：
+
+- 顶级目录（{@code type=1}）渲染为可展开 / 折叠的分组；
+- 菜单（{@code type=2}）渲染为 `Link`；当 `path` 命中当前路由时高亮；
+- `isExternal=true` 渲染为 `<a target="_blank">`；
+- `isHidden=true` 或 `status=0` 的节点会被过滤；
+- `icon` 字段按 `ICON_MAP` 映射到 lucide-react 图标，未匹配时退化为 `Folder`。
+
+`/admin`（概览）与 `/admin/profile/password`（修改密码）保持硬编码（不属于菜单管理的内容）。详细的菜单数据模型见 [`../docs/menu.md`](../docs/menu.md)。
+
 ## 默认登录账号
 
 后端会自动初始化默认管理员账号 `admin / 123456`，登录后请尽快通过用户管理页重置密码。
+
+## 已知 breaking change（v2 菜单改造）
+
+- 旧 `/admin/system/permission` 页面已下线，改为 `/admin/system/menu`；旧书签需要更新。
+- 旧权限码 `system:permission:*` 整体废弃，统一为 `system:menu:*`；自定义角色绑定的旧权限需要在 “角色管理 → 分配菜单” 中重新分配。
+- 数据库表 `idp_sys_permission` / `idp_sys_role_permission` 由 `idp_sys_menu` / `idp_sys_role_menu` 取代，本地需要 `drop database idp;` 重建。

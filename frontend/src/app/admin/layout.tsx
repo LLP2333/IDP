@@ -1,48 +1,88 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { KeyRound, LogOut, Settings, ShieldCheck, ShieldHalf, Users } from "lucide-react";
+import {
+  Banknote,
+  BarChart3,
+  Bell,
+  Boxes,
+  Database,
+  ExternalLink,
+  FileText,
+  Folder,
+  Globe,
+  KeyRound,
+  LayoutDashboard,
+  type LucideIcon,
+  LogIn,
+  LogOut,
+  Menu as MenuIcon,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { SiteFooter } from "~/components/site-footer";
 import { Button } from "~/components/ui/button";
 import { getUserInfo, logout } from "~/lib/api/auth";
-import { usePermission } from "~/lib/hooks/use-permission";
+import { getUserRoute } from "~/lib/api/menu";
+import type { MenuResp } from "~/lib/api/types";
 import { useSiteConfig } from "~/lib/hooks/use-site-config";
 import { useAuthStore } from "~/lib/store/auth-store";
 import { cn } from "~/lib/utils";
 
 /**
- * 侧边栏导航项定义。
+ * 把后端菜单的 `icon` 字符串映射为 lucide-react 图标组件。
  *
- * 每个 item 可声明所需权限码集合：admin 直通，普通用户需拥有任一权限码才能看见。
- * 空数组表示无需权限（如 “概览”）。
+ * 未匹配到 / 字段为空时返回 `null`，渲染时占位一个等宽的空白。
  */
-const NAV_ITEMS: Array<{
-  href: string;
-  label: string;
-  icon: typeof Users | null;
-  requires: string[];
-}> = [
-  { href: "/admin", label: "概览", icon: null, requires: [] },
-  { href: "/admin/system/user", label: "用户管理", icon: Users, requires: ["system:user:list"] },
-  { href: "/admin/system/role", label: "角色管理", icon: ShieldCheck, requires: ["system:role:list"] },
-  {
-    href: "/admin/system/permission",
-    label: "权限管理",
-    icon: ShieldHalf,
-    requires: ["system:permission:list"],
-  },
-  {
-    href: "/admin/system/config",
-    label: "系统配置",
-    icon: Settings,
-    requires: ["system:siteConfig:get", "system:securityConfig:get", "system:loginConfig:get"],
-  },
-];
+const ICON_MAP: Record<string, LucideIcon> = {
+  users: Users,
+  user: Users,
+  "shield-check": ShieldCheck,
+  shield: Shield,
+  menu: MenuIcon,
+  settings: Settings,
+  setting: Settings,
+  "key-round": KeyRound,
+  key: KeyRound,
+  "log-in": LogIn,
+  login: LogIn,
+  dashboard: LayoutDashboard,
+  layout: LayoutDashboard,
+  folder: Folder,
+  boxes: Boxes,
+  database: Database,
+  globe: Globe,
+  bell: Bell,
+  file: FileText,
+  banknote: Banknote,
+  chart: BarChart3,
+  external: ExternalLink,
+};
+
+function resolveIcon(icon: string | null | undefined): LucideIcon | null {
+  if (!icon) return null;
+  return ICON_MAP[icon.trim().toLowerCase()] ?? Folder;
+}
+
+/**
+ * 过滤掉隐藏 / 禁用节点，并按 sort 升序排序；递归处理子节点。
+ */
+function normalizeTree(tree: MenuResp[]): MenuResp[] {
+  return tree
+    .filter((node) => !node.isHidden && node.status === 1)
+    .sort((a, b) => a.sort - b.sort)
+    .map((node) => ({
+      ...node,
+      children: node.children ? normalizeTree(node.children) : [],
+    }));
+}
 
 /**
  * `/admin/**` 路由下的整体 Shell：侧边栏 + 顶栏 + 主内容区。
@@ -50,6 +90,7 @@ const NAV_ITEMS: Array<{
  * 同时负责：
  * - 路由级登录守卫：未登录则跳转 `/login`；
  * - 首次进入时调用 `/auth/user/info` 拉取并缓存当前用户信息；
+ * - 调用 `/auth/user/route` 获取动态侧边栏菜单（admin 直通全部菜单，普通用户按角色聚合）；
  * - 顶栏提供登出按钮，登出后清空登录态并跳转登录页。
  */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -58,6 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
+  const setMenuTree = useAuthStore((s) => s.setMenuTree);
   const hydrated = useAuthStore((s) => s.hydrated);
   const clearAuth = useAuthStore((s) => s.logout);
 
@@ -77,7 +119,47 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (userQuery.data) setUser(userQuery.data);
   }, [userQuery.data, setUser]);
 
-  const { hasAnyPermission } = usePermission();
+  const routeQuery = useQuery({
+    queryKey: ["auth", "user-route"],
+    queryFn: getUserRoute,
+    enabled: hydrated && !!token,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (routeQuery.data) setMenuTree(routeQuery.data);
+  }, [routeQuery.data, setMenuTree]);
+
+  const navTree = useMemo(
+    () => normalizeTree(routeQuery.data ?? []),
+    [routeQuery.data],
+  );
+
+  const [openIds, setOpenIds] = useState<Set<number>>(new Set());
+
+  // 路径变化时，自动展开命中的目录链路（顶级目录至少打开一个）
+  useEffect(() => {
+    const next = new Set<number>();
+    function walk(nodes: MenuResp[]): boolean {
+      let matched = false;
+      for (const n of nodes) {
+        const childMatched = n.children ? walk(n.children) : false;
+        const selfMatched = !!n.path && pathname.startsWith(n.path);
+        if (childMatched || selfMatched) {
+          next.add(n.id);
+          matched = true;
+        }
+      }
+      return matched;
+    }
+    walk(navTree);
+    setOpenIds((prev) => {
+      const merged = new Set(prev);
+      next.forEach((id) => merged.add(id));
+      return merged;
+    });
+  }, [pathname, navTree]);
+
   const { data: site } = useSiteConfig();
   const siteTitle = site?.title?.trim() ? site.title : "IDP 管理系统";
   const siteSubtitle = site?.description?.trim() ? site.description : "企业级后台";
@@ -106,6 +188,101 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.replace("/login");
   };
 
+  /**
+   * 渲染一个菜单节点：
+   * - 目录（type=1，存在子节点）：渲染为可展开的折叠分组；
+   * - 菜单（type=2）：渲染为 `Link`；
+   * - 外链（isExternal）：渲染为 `<a target="_blank">`。
+   */
+  function renderNavNode(node: MenuResp, depth: number): React.ReactNode {
+    const Icon = resolveIcon(node.icon);
+    const hasChildren = (node.children?.length ?? 0) > 0;
+    const isDir = node.type === 1 && hasChildren;
+    const isExternal = node.isExternal && node.path;
+
+    if (isDir) {
+      const isOpen = openIds.has(node.id);
+      const toggle = () =>
+        setOpenIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(node.id)) next.delete(node.id);
+          else next.add(node.id);
+          return next;
+        });
+      return (
+        <div key={node.id} className="mb-1">
+          <button
+            type="button"
+            onClick={toggle}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-zinc-600 transition-colors hover:bg-zinc-100",
+            )}
+            style={{ paddingLeft: 12 + depth * 12 }}
+          >
+            {Icon ? <Icon size={16} /> : <span className="inline-block w-4" />}
+            <span className="flex-1">{node.title}</span>
+            <span className="text-xs text-zinc-400">{isOpen ? "▾" : "▸"}</span>
+          </button>
+          {isOpen ? (
+            <div className="ml-2 border-l border-zinc-100 pl-2">
+              {node.children!.map((c) => renderNavNode(c, depth + 1))}
+            </div>
+          ) : null}
+        </div>
+      );
+    }
+
+    if (isExternal) {
+      return (
+        <a
+          key={node.id}
+          href={node.path!}
+          target="_blank"
+          rel="noreferrer"
+          className={cn(
+            "mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-zinc-600 transition-colors hover:bg-zinc-100",
+          )}
+          style={{ paddingLeft: 12 + depth * 12 }}
+        >
+          {Icon ? <Icon size={16} /> : <ExternalLink size={16} />}
+          {node.title}
+        </a>
+      );
+    }
+
+    if (!node.path) {
+      // 没有 path 的非目录节点（数据异常）：直接降级为不可点击文本
+      return (
+        <div
+          key={node.id}
+          className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-zinc-400"
+          style={{ paddingLeft: 12 + depth * 12 }}
+        >
+          {Icon ? <Icon size={16} /> : <span className="inline-block w-4" />}
+          {node.title}
+        </div>
+      );
+    }
+
+    const active = pathname === node.path || pathname.startsWith(`${node.path}/`);
+    return (
+      <Link
+        key={node.id}
+        href={node.path}
+        className={cn(
+          "mb-1 flex items-center gap-2 rounded-md px-3 py-2 transition-colors",
+          active
+            ? "bg-blue-50 text-blue-700"
+            : "text-zinc-600 hover:bg-zinc-100",
+        )}
+        style={{ paddingLeft: 12 + depth * 12 }}
+      >
+        {Icon ? <Icon size={16} /> : <span className="inline-block w-4" />}
+        {node.title}
+      </Link>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-zinc-50">
       <aside className="flex w-56 flex-col border-r border-zinc-200 bg-white">
@@ -127,29 +304,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {siteSubtitle}
           </p>
         </div>
-        <nav className="flex-1 px-2 py-3 text-sm">
-          {NAV_ITEMS.filter((item) => hasAnyPermission(item.requires)).map((item) => {
-            const active =
-              item.href === "/admin"
-                ? pathname === "/admin"
-                : pathname.startsWith(item.href);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "mb-1 flex items-center gap-2 rounded-md px-3 py-2 transition-colors",
-                  active
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-zinc-600 hover:bg-zinc-100",
-                )}
-              >
-                {Icon ? <Icon size={16} /> : <span className="inline-block w-4" />}
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto px-2 py-3 text-sm">
+          <Link
+            href="/admin"
+            className={cn(
+              "mb-1 flex items-center gap-2 rounded-md px-3 py-2 transition-colors",
+              pathname === "/admin"
+                ? "bg-blue-50 text-blue-700"
+                : "text-zinc-600 hover:bg-zinc-100",
+            )}
+          >
+            <LayoutDashboard size={16} />
+            概览
+          </Link>
+          {routeQuery.isLoading ? (
+            <div className="px-3 py-2 text-xs text-zinc-400">加载菜单中…</div>
+          ) : (
+            navTree.map((n) => renderNavNode(n, 0))
+          )}
           <Link
             href="/admin/profile/password"
             className={cn(

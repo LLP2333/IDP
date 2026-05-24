@@ -7,6 +7,8 @@ import com.qvqw.idp.auth.model.resp.UserInfoResp;
 import com.qvqw.idp.common.exception.BusinessException;
 import com.qvqw.idp.common.security.UserContext;
 import com.qvqw.idp.common.security.UserContextHolder;
+import com.qvqw.idp.menu.MenuService;
+import com.qvqw.idp.menu.model.resp.MenuResp;
 import com.qvqw.idp.option.OptionService;
 import com.qvqw.idp.option.PasswordPolicy;
 import com.qvqw.idp.role.RoleService;
@@ -17,6 +19,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -39,6 +44,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserService userService;
     private final RoleService roleService;
+    private final MenuService menuService;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final TokenStore tokenStore;
@@ -47,6 +53,7 @@ public class AuthServiceImpl implements AuthService {
 
     public AuthServiceImpl(UserService userService,
                            RoleService roleService,
+                           MenuService menuService,
                            PasswordEncoder passwordEncoder,
                            JwtTokenProvider tokenProvider,
                            TokenStore tokenStore,
@@ -54,6 +61,7 @@ public class AuthServiceImpl implements AuthService {
                            CaptchaService captchaService) {
         this.userService = userService;
         this.roleService = roleService;
+        this.menuService = menuService;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
         this.tokenStore = tokenStore;
@@ -137,5 +145,30 @@ public class AuthServiceImpl implements AuthService {
         Set<String> permCodes = roleService.listPermissionCodesByUserId(ctx.getId());
         resp.setPermissions(permCodes.stream().sorted().toList());
         return resp;
+    }
+
+    /**
+     * 获取当前登录用户可见的菜单路由（{@code type=1/2} 树）。
+     *
+     * <p>admin 角色返回全部启用菜单；普通用户聚合其角色绑定的菜单去重后返回。</p>
+     */
+    @Override
+    public List<MenuResp> getCurrentUserRoute() {
+        UserContext ctx = UserContextHolder.get();
+        if (ctx == null) {
+            throw new BusinessException(401, "未登录");
+        }
+        if (ctx.hasRole("admin")) {
+            return menuService.treeAllEnabledRoutes();
+        }
+        List<Long> roleIds = roleService.listRoleIdsByUserId(ctx.getId());
+        if (roleIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Set<Long> menuIds = new HashSet<>();
+        for (Long rid : roleIds) {
+            menuIds.addAll(roleService.listMenuIdsByRoleId(rid));
+        }
+        return menuService.treeByIds(menuIds);
     }
 }

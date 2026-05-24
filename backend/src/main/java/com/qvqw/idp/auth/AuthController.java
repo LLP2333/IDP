@@ -8,6 +8,7 @@ import com.qvqw.idp.auth.model.resp.LoginResp;
 import com.qvqw.idp.auth.model.resp.UserInfoResp;
 import com.qvqw.idp.common.api.R;
 import com.qvqw.idp.common.config.OpenApiConfig;
+import com.qvqw.idp.menu.model.resp.MenuResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -20,6 +21,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * 认证 API：登录、登出、查询当前登录用户信息。
@@ -103,6 +106,22 @@ public class AuthController {
     @GetMapping("/user/info")
     public R<UserInfoResp> getUserInfo() {
         return R.ok(authService.getCurrentUserInfo());
+    }
+
+    /**
+     * 获取当前登录用户可见的菜单路由（{@code type=1/2} 树，按 sort 升序）。
+     *
+     * <p>admin 角色返回全部启用菜单；普通用户聚合其角色绑定的菜单去重后返回。前端侧边栏
+     * 由该接口的返回数据驱动。</p>
+     *
+     * @return 菜单树
+     */
+    @Operation(summary = "查询当前登录用户可见菜单",
+            description = "返回 type=1（目录）/ type=2（菜单）按 sort 升序组装的树结构，前端用于渲染侧边栏。")
+    @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
+    @GetMapping("/user/route")
+    public R<List<MenuResp>> getUserRoute() {
+        return R.ok(authService.getCurrentUserRoute());
     }
 
     /**
