@@ -9,6 +9,10 @@ vi.mock("~/lib/api/option", () => ({
   getSiteConfigPublic: vi.fn(),
 }));
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/test",
+}));
+
 import { getSiteConfigPublic } from "~/lib/api/option";
 
 const mocked = getSiteConfigPublic as unknown as ReturnType<typeof vi.fn>;
