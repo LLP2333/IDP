@@ -29,21 +29,34 @@ frontend/
 │   │   │   ├── page.tsx                  # 概览页
 │   │   │   ├── profile/
 │   │   │   │   └── page.tsx              # 个人中心：基本信息 + 安全设置（含修改密码）
+│   │   │   ├── message/page.tsx          # 站内消息中心（普通用户视角）
 │   │   │   └── system/
 │   │   │       ├── user/page.tsx         # 用户管理
 │   │   │       ├── role/page.tsx         # 角色管理 + 分配菜单
 │   │   │       ├── menu/page.tsx         # 菜单管理（树形表格 + type 联动弹窗）
-│   │   │       └── config/page.tsx       # 系统配置（SITE/PASSWORD/LOGIN Tab）
+│   │   │       ├── config/page.tsx       # 系统配置（SITE/PASSWORD/LOGIN Tab）
+│   │   │       ├── dict/page.tsx         # 字典管理（字典 + 明细）
+│   │   │       └── notice/               # 通知公告
+│   │   │           ├── page.tsx          # 列表 + 搜索 + 删除
+│   │   │           ├── add/page.tsx      # 新增 / 编辑（query.type=update）
+│   │   │           └── view/page.tsx     # 预览
 │   │   ├── layout.tsx                    # 根 Layout（QueryProvider + Toaster）
 │   │   └── page.tsx                      # 入口：根据登录态跳 /login 或 /admin
 │   ├── components/
 │   │   ├── providers/query-provider.tsx
 │   │   ├── ui/                           # 基础组件（Button/Input/Modal/Tabs/Switch/UploadImage 等）
-│   │   ├── system/                       # 业务表单（user/role/menu-tree/三个配置表单）
+│   │   ├── system/                       # 业务表单（user/role/menu-tree/notice/dict 等）
+│   │   │   ├── dict-badge.tsx            # 字典明细 → 带颜色的 Badge
+│   │   │   ├── notice-detail-drawer.tsx  # 通知公告右侧详情抽屉
+│   │   │   ├── notice-popup.tsx          # 登录后弹窗未读公告
+│   │   │   ├── notification-bell.tsx     # 顶栏未读数 + 最近消息下拉
+│   │   │   └── user-multi-select.tsx     # 多选用户（指定通知用户场景）
 │   │   └── permission-guard.tsx          # <PermissionGuard codes=[...]>
 │   ├── lib/
-│   │   ├── api/                          # http 封装 + auth/user/role/option/menu API + 类型
-│   │   ├── hooks/use-permission.ts       # 权限判断 Hook（admin 直通）
+│   │   ├── api/                          # http 封装 + auth/user/role/option/menu/notice/dict/message API + 类型
+│   │   ├── hooks/
+│   │   │   ├── use-permission.ts         # 权限判断 Hook（admin 直通）
+│   │   │   └── use-dict.ts               # 按 code 拉字典 + getLabel/getColor 工具
 │   │   ├── store/auth-store.ts           # zustand 持久化登录态（含 menuTree 非持久字段）
 │   │   └── utils.ts                      # cn / apiUrl
 │   ├── styles/globals.css
@@ -87,6 +100,9 @@ API 客户端文件 → 后端接口对应：
 | `lib/api/role.ts` | `GET/POST/PUT/DELETE /system/role` 系列 |
 | `lib/api/option.ts` | `GET/PUT/PATCH /system/option`、`POST /system/option/image`、公开 `GET /system/option/site` 与 `/system/option/login` |
 | `lib/api/menu.ts` | `GET/POST/PUT/DELETE /system/menu` 系列 + `GET/PUT /system/role/{id}/menu` + `GET /auth/user/route`（前端动态侧边栏数据源） |
+| `lib/api/dict.ts` | `GET /system/dict/list`、`GET/POST/PUT/DELETE /system/dict` 与 `/system/dict/{dictId}/item` 系列、公开 `GET /system/dict/{code}/item` |
+| `lib/api/notice.ts` | `GET/POST/PUT/DELETE /system/notice` + `/popup`、`/{id}/read`、`/dashboard` |
+| `lib/api/message.ts` | `GET /system/message` 分页、`/unread-count`、`POST /system/message/{id}/read` 与 `/read-all` |
 
 ## 常用脚本
 
@@ -150,6 +166,17 @@ API 客户端文件 → 后端接口对应：
 ## 默认登录账号
 
 后端会自动初始化默认管理员账号 `admin / 123456`，登录后请尽快通过用户管理页重置密码。
+
+## 通知公告 / 字典 / 消息中心
+
+新增的三个模块共享同一组前端基础设施：
+
+- **字典 Hook `useDict(code, enabled?)`**：5 分钟 staleTime 缓存，返回 `{ items, getLabel, getColor }`；写入字典后调用 `queryClient.invalidateQueries({ queryKey: dictQueryKey(code) })` 即可刷新所有消费方。详见 [`../docs/dict.md`](../docs/dict.md)。
+- **`DictBadge`**：把字典明细的 `color` 字段（`primary/success/warning/danger/info`）渲染成统一的 Badge tone；匹配不到时回落为灰色 + 原 value。
+- **通知公告页面**：列表 / 新增编辑 / 预览三页 + 右侧详情抽屉；正文用 `<textarea>` + 预览端 `<pre className="whitespace-pre-wrap">`，零额外依赖；定时发布 / 草稿 / 立即发布的状态切换在 `add/page.tsx` 中按 `status + isTiming` 推导，详见 [`../docs/notice.md`](../docs/notice.md)。
+- **登录弹窗 `NoticePopup`**：在 `/admin/layout.tsx` 内首次进入时 fetch `/system/notice/popup`，命中则用 Modal 依次展示；会话内通过 `sessionStorage` 记录已展示 ID 防重复弹出。
+- **顶栏未读数 `NotificationBell`**：拉 `/system/message/unread-count` + 最近 5 条消息，点击消息会跳转 `message.path` 并自动 `read(id)`。详见 [`../docs/message.md`](../docs/message.md)。
+- **Dashboard 卡片**：`/admin` 概览页新增 “最新公告” 卡片，数据来自 `/system/notice/dashboard`。
 
 ## 已知 breaking change（v2 菜单改造）
 
