@@ -15,6 +15,7 @@ function login(roles: string[], permissions: string[]) {
       avatar: null,
       email: null,
       phone: null,
+      gender: 0,
       roles,
       permissions,
     },

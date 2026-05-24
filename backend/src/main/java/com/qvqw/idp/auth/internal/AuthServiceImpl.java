@@ -140,6 +140,7 @@ public class AuthServiceImpl implements AuthService {
         resp.setAvatar(detail.getAvatar());
         resp.setEmail(detail.getEmail());
         resp.setPhone(detail.getPhone());
+        resp.setGender(detail.getGender());
         Set<String> roleCodes = roleService.listCodesByUserId(ctx.getId());
         resp.setRoles(roleCodes.stream().sorted().toList());
         Set<String> permCodes = roleService.listPermissionCodesByUserId(ctx.getId());

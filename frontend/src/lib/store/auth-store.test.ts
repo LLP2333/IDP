@@ -30,6 +30,7 @@ describe("useAuthStore", () => {
         avatar: null,
         email: null,
         phone: null,
+        gender: 0,
         roles: ["admin"],
         permissions: [],
       },

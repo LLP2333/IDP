@@ -176,12 +176,18 @@ class AuthServiceImplTest {
         detail.setId(1L);
         detail.setUsername("admin");
         detail.setNickname("Administrator");
+        detail.setEmail("admin@example.com");
+        detail.setPhone("13800000000");
+        detail.setGender(1);
         when(userService.findById(1L)).thenReturn(Optional.of(detail));
         when(roleService.listCodesByUserId(1L)).thenReturn(Set.of("admin"));
         when(roleService.listPermissionCodesByUserId(1L)).thenReturn(Set.of("system:user:list", "system:user:add"));
 
         UserInfoResp info = authService.getCurrentUserInfo();
         assertThat(info.getUsername()).isEqualTo("admin");
+        assertThat(info.getEmail()).isEqualTo("admin@example.com");
+        assertThat(info.getPhone()).isEqualTo("13800000000");
+        assertThat(info.getGender()).isEqualTo(1);
         assertThat(info.getRoles()).containsExactly("admin");
         assertThat(info.getPermissions()).containsExactly("system:user:add", "system:user:list");
     }

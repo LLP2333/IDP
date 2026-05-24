@@ -3,6 +3,7 @@ import type {
   CaptchaResp,
   LoginReq,
   LoginResp,
+  UserBasicInfoUpdateReq,
   UserInfo,
   UserPasswordChangeReq,
 } from "./types";
@@ -69,4 +70,17 @@ export function getCaptcha() {
  */
 export function changeCurrentPassword(req: UserPasswordChangeReq) {
   return http.post<void>("/system/user/password", req);
+}
+
+/**
+ * 当前登录用户自助修改基本信息（个人中心使用）。
+ *
+ * 对应后端 `PUT /system/user/profile`。任意登录用户都可以调用，无需
+ * `system:user:*` 权限；只允许更新昵称 / 邮箱 / 手机 / 性别。
+ * 状态、角色、备注等需通过用户管理接口由管理员调整。
+ *
+ * @param req 待修改字段；`undefined` 字段不会被覆盖
+ */
+export function updateCurrentUserBasicInfo(req: UserBasicInfoUpdateReq) {
+  return http.put<void>("/system/user/profile", req);
 }

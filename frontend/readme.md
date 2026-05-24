@@ -28,7 +28,7 @@ frontend/
 │   │   │   ├── layout.tsx                # 后台 Shell（按权限过滤侧边栏 + 顶栏 + 登出）
 │   │   │   ├── page.tsx                  # 概览页
 │   │   │   ├── profile/
-│   │   │   │   └── password/page.tsx     # 当前用户自助改密
+│   │   │   │   └── page.tsx              # 个人中心：基本信息 + 安全设置（含修改密码）
 │   │   │   └── system/
 │   │   │       ├── user/page.tsx         # 用户管理
 │   │   │       ├── role/page.tsx         # 角色管理 + 分配菜单
@@ -82,7 +82,7 @@ API 客户端文件 → 后端接口对应：
 
 | 文件 | 后端接口 |
 | --- | --- |
-| `lib/api/auth.ts` | `POST /auth/login`、`POST /auth/logout`、`GET /auth/user/info`、`GET /auth/captcha`、`POST /system/user/password` |
+| `lib/api/auth.ts` | `POST /auth/login`、`POST /auth/logout`、`GET /auth/user/info`、`GET /auth/captcha`、`POST /system/user/password`、`PUT /system/user/profile` |
 | `lib/api/user.ts` | `GET/POST/PUT/DELETE /system/user` 系列 + 重置密码 / 分配角色 |
 | `lib/api/role.ts` | `GET/POST/PUT/DELETE /system/role` 系列 |
 | `lib/api/option.ts` | `GET/PUT/PATCH /system/option`、`POST /system/option/image`、公开 `GET /system/option/site` 与 `/system/option/login` |
@@ -128,7 +128,24 @@ API 客户端文件 → 后端接口对应：
 - `isHidden=true` 或 `status=0` 的节点会被过滤；
 - `icon` 字段按 `ICON_MAP` 映射到 lucide-react 图标，未匹配时退化为 `Folder`。
 
-`/admin`（概览）与 `/admin/profile/password`（修改密码）保持硬编码（不属于菜单管理的内容）。详细的菜单数据模型见 [`../docs/menu.md`](../docs/menu.md)。
+`/admin`（概览）与 `/admin/profile`（个人中心：基本信息 + 修改密码）保持硬编码（不属于菜单管理的内容）。详细的菜单数据模型见 [`../docs/menu.md`](../docs/menu.md)。
+
+## 个人中心 `/admin/profile`
+
+参考 continew-admin 的个人中心页布局，由 `app/admin/profile/page.tsx` 实现：
+
+- 左侧 “基本信息” 卡：展示 ID / 用户名 / 昵称 / 邮箱 / 手机 / 性别 / 角色，并提供 “编辑” 按钮触发 Modal 修改昵称、邮箱、手机、性别；
+- 右侧 “安全设置” 卡：展示登录密码（始终已设置）、安全邮箱、安全手机三行；点击 “修改” 调起对应 Modal（密码使用专门的 “原密码 + 新密码 + 确认” 表单，邮箱 / 手机复用基本信息 Modal）；
+- 修改基本信息成功后会立即 `getUserInfo` 重拉并更新 zustand store，顶栏 / 侧边栏即时反映新的昵称；
+- 修改密码成功后会自动登出并跳回 `/login`，强制使用新密码重新登录。
+
+后端配套接口：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `PUT` | `/system/user/profile` | 当前登录用户自助修改昵称 / 邮箱 / 手机 / 性别（任意登录用户可调用，无需 `system:user:*` 权限） |
+| `POST` | `/system/user/password` | 当前登录用户自助修改密码 |
+| `GET` | `/auth/user/info` | 拉取当前用户信息（含 `gender`） |
 
 ## 默认登录账号
 

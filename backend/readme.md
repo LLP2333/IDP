@@ -41,7 +41,7 @@ com.qvqw.idp
 │   ├── annotation/@HasPermission              # NamedInterface
 │   └── internal/MenuRepository, MenuServiceImpl, MenuAspect, MenuSeeder
 ├── user/                          # 用户管理
-│   ├── UserController             # /system/user CRUD + 改密 + 分配角色
+│   ├── UserController             # /system/user CRUD + 改密 + 分配角色 + /profile 个人中心自助改信息
 │   ├── UserService, User, UserPasswordHistory
 │   └── internal/UserServiceImpl, UserRepository, UserPasswordHistoryRepository, PasswordValidator, AdminSeeder
 └── role/                          # 角色管理
@@ -106,6 +106,7 @@ flowchart LR
 | GET | `/auth/user/route` | 当前登录用户可见菜单树（前端动态侧边栏数据源） |
 | GET | `/auth/captcha` | 获取登录验证码 |
 | POST | `/system/user/password` | 当前用户自助改密 |
+| PUT | `/system/user/profile` | 当前用户自助修改基本信息（昵称 / 邮箱 / 手机 / 性别） |
 | GET | `/system/user` | 用户分页（`page,size,username,status`） |
 | GET | `/system/user/{id}` | 用户详情（含角色列表） |
 | POST | `/system/user` | 新增用户 |

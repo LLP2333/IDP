@@ -28,6 +28,9 @@ public class UserInfoResp {
     @Schema(description = "手机号")
     private String phone;
 
+    @Schema(description = "性别：0=未知, 1=男, 2=女", example = "1")
+    private Integer gender;
+
     @Schema(description = "角色编码列表", example = "[\"admin\"]")
     private List<String> roles;
 
@@ -80,6 +83,14 @@ public class UserInfoResp {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public Integer getGender() {
+        return gender;
+    }
+
+    public void setGender(Integer gender) {
+        this.gender = gender;
     }
 
     public List<String> getRoles() {

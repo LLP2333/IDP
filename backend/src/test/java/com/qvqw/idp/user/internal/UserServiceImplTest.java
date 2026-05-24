@@ -7,6 +7,7 @@ import com.qvqw.idp.role.RoleService;
 import com.qvqw.idp.user.User;
 import com.qvqw.idp.user.UserPasswordHistory;
 import com.qvqw.idp.user.UserService;
+import com.qvqw.idp.user.model.req.UserBasicInfoUpdateReq;
 import com.qvqw.idp.user.model.req.UserCreateReq;
 import com.qvqw.idp.user.model.req.UserPasswordChangeReq;
 import com.qvqw.idp.user.model.req.UserPasswordResetReq;
@@ -201,6 +202,89 @@ class UserServiceImplTest {
         verify(passwordValidator).validate(eq("NewPass#234"), eq("admin"), anyList());
         verify(passwordHistoryRepository).save(any(UserPasswordHistory.class));
         assertThat(user.getPassword()).isEqualTo("newhash");
+    }
+
+    @Test
+    void updateCurrentUserBasicInfoShouldUpdateOnlyProvidedFields() {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("admin");
+        user.setNickname("旧昵称");
+        user.setEmail("old@x.com");
+        user.setPhone("13800000000");
+        user.setGender(0);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserBasicInfoUpdateReq req = new UserBasicInfoUpdateReq();
+        req.setNickname("新昵称");
+        req.setGender(1);
+
+        userService.updateCurrentUserBasicInfo(1L, req);
+
+        assertThat(user.getNickname()).isEqualTo("新昵称");
+        assertThat(user.getGender()).isEqualTo(1);
+        // 未传字段保持原值
+        assertThat(user.getEmail()).isEqualTo("old@x.com");
+        assertThat(user.getPhone()).isEqualTo("13800000000");
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void updateCurrentUserBasicInfoEmptyEmailShouldClear() {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("admin");
+        user.setEmail("old@x.com");
+        user.setPhone("13800000000");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserBasicInfoUpdateReq req = new UserBasicInfoUpdateReq();
+        req.setEmail("");
+        req.setPhone("");
+
+        userService.updateCurrentUserBasicInfo(1L, req);
+
+        assertThat(user.getEmail()).isNull();
+        assertThat(user.getPhone()).isNull();
+    }
+
+    @Test
+    void updateCurrentUserBasicInfoBlankNicknameShouldThrow() {
+        User user = new User();
+        user.setId(1L);
+        user.setNickname("张三");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserBasicInfoUpdateReq req = new UserBasicInfoUpdateReq();
+        req.setNickname("   ");
+
+        assertThatThrownBy(() -> userService.updateCurrentUserBasicInfo(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("昵称不能为空");
+    }
+
+    @Test
+    void updateCurrentUserBasicInfoIllegalGenderShouldThrow() {
+        User user = new User();
+        user.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserBasicInfoUpdateReq req = new UserBasicInfoUpdateReq();
+        req.setGender(99);
+
+        assertThatThrownBy(() -> userService.updateCurrentUserBasicInfo(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("性别");
+    }
+
+    @Test
+    void updateCurrentUserBasicInfoUserNotFoundShouldThrow() {
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+        UserBasicInfoUpdateReq req = new UserBasicInfoUpdateReq();
+        req.setNickname("x");
+        assertThatThrownBy(() -> userService.updateCurrentUserBasicInfo(99L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("用户不存在");
     }
 
     @Test

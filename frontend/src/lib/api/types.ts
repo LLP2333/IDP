@@ -67,6 +67,8 @@ export interface UserInfo {
   avatar: string | null;
   email: string | null;
   phone: string | null;
+  /** 性别：0=未知, 1=男, 2=女。可能为 `null`（数据缺失时）。 */
+  gender: number | null;
   /** 角色编码列表，如 `["admin"]`。 */
   roles: string[];
   /** 按钮级权限编码列表，如 `["system:user:add"]`。 */
@@ -87,6 +89,21 @@ export interface CaptchaResp {
 export interface UserPasswordChangeReq {
   oldPassword: string;
   newPassword: string;
+}
+
+/**
+ * 当前登录用户自助修改基本信息请求。
+ *
+ * 仅承载非敏感字段：昵称 / 邮箱 / 手机 / 性别。
+ * - 字段为 `undefined` 时不修改；
+ * - `email` / `phone` 为 `""` 时表示主动清空（后端会写为 `null`）。
+ */
+export interface UserBasicInfoUpdateReq {
+  nickname?: string;
+  email?: string;
+  phone?: string;
+  /** 性别：0=未知, 1=男, 2=女。 */
+  gender?: number;
 }
 
 // ============== user ==============

@@ -6,6 +6,7 @@ import {
   BarChart3,
   Bell,
   Boxes,
+  CircleUser,
   Database,
   ExternalLink,
   FileText,
@@ -323,16 +324,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             navTree.map((n) => renderNavNode(n, 0))
           )}
           <Link
-            href="/admin/profile/password"
+            href="/admin/profile"
             className={cn(
               "mb-1 flex items-center gap-2 rounded-md px-3 py-2 transition-colors",
-              pathname.startsWith("/admin/profile/password")
+              pathname.startsWith("/admin/profile")
                 ? "bg-blue-50 text-blue-700"
                 : "text-zinc-600 hover:bg-zinc-100",
             )}
           >
-            <KeyRound size={16} />
-            修改密码
+            <CircleUser size={16} />
+            个人中心
           </Link>
         </nav>
       </aside>
@@ -340,14 +341,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex flex-1 flex-col">
         <header className="flex h-14 items-center justify-end border-b border-zinc-200 bg-white px-6">
           <div className="flex items-center gap-3 text-sm">
-            <div className="flex flex-col items-end leading-tight">
-              <span className="font-medium text-zinc-800">
-                {user?.nickname ?? user?.username ?? "未知用户"}
-              </span>
-              <span className="text-xs text-zinc-400">
-                {user?.roles?.join(" / ") ?? "—"}
-              </span>
-            </div>
+            <Link
+              href="/admin/profile"
+              className="flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-zinc-100"
+              title="进入个人中心"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-700">
+                {(user?.nickname ?? user?.username ?? "?").trim().slice(0, 1).toUpperCase()}
+              </div>
+              <div className="flex flex-col items-start leading-tight">
+                <span className="font-medium text-zinc-800">
+                  {user?.nickname ?? user?.username ?? "未知用户"}
+                </span>
+                <span className="text-xs text-zinc-400">
+                  {user?.roles?.join(" / ") ?? "—"}
+                </span>
+              </div>
+            </Link>
             <Button
               variant="ghost"
               size="sm"

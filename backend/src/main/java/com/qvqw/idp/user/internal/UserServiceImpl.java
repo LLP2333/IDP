@@ -11,6 +11,7 @@ import com.qvqw.idp.user.User;
 import com.qvqw.idp.user.UserPasswordHistory;
 import com.qvqw.idp.user.UserService;
 import com.qvqw.idp.user.model.query.UserQuery;
+import com.qvqw.idp.user.model.req.UserBasicInfoUpdateReq;
 import com.qvqw.idp.user.model.req.UserCreateReq;
 import com.qvqw.idp.user.model.req.UserPasswordChangeReq;
 import com.qvqw.idp.user.model.req.UserPasswordResetReq;
@@ -290,6 +291,48 @@ public class UserServiceImpl implements UserService {
     @Override
     public Optional<UserDetailResp> findById(Long id) {
         return userRepository.findById(id).map(this::toDetail);
+    }
+
+    /**
+     * 当前用户自助修改基本信息：仅允许更新昵称 / 邮箱 / 手机 / 性别。
+     *
+     * <p>对 {@code email} / {@code phone}：</p>
+     * <ul>
+     *   <li>{@code null} 表示不修改；</li>
+     *   <li>{@code ""} 表示清空（数据库置为 {@code null}）；</li>
+     *   <li>非空字符串走 DTO 上 {@code @Email} / {@code @Pattern} 校验后落库。</li>
+     * </ul>
+     *
+     * @param userId 当前用户 ID
+     * @param req    待更新字段
+     * @throws BusinessException 用户不存在
+     */
+    @Override
+    @Transactional
+    public void updateCurrentUserBasicInfo(Long userId, UserBasicInfoUpdateReq req) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException("用户不存在"));
+        if (req.getNickname() != null) {
+            String nickname = req.getNickname().trim();
+            if (nickname.isEmpty()) {
+                throw new BusinessException("昵称不能为空");
+            }
+            user.setNickname(nickname);
+        }
+        if (req.getEmail() != null) {
+            user.setEmail(req.getEmail().isBlank() ? null : req.getEmail().trim());
+        }
+        if (req.getPhone() != null) {
+            user.setPhone(req.getPhone().isBlank() ? null : req.getPhone().trim());
+        }
+        if (req.getGender() != null) {
+            int g = req.getGender();
+            if (g != 0 && g != 1 && g != 2) {
+                throw new BusinessException("性别取值非法");
+            }
+            user.setGender(g);
+        }
+        userRepository.save(user);
     }
 
     /**

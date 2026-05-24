@@ -6,6 +6,7 @@ import com.qvqw.idp.common.exception.BusinessException;
 import com.qvqw.idp.common.security.UserContextHolder;
 import com.qvqw.idp.menu.annotation.HasPermission;
 import com.qvqw.idp.user.model.query.UserQuery;
+import com.qvqw.idp.user.model.req.UserBasicInfoUpdateReq;
 import com.qvqw.idp.user.model.req.UserCreateReq;
 import com.qvqw.idp.user.model.req.UserPasswordChangeReq;
 import com.qvqw.idp.user.model.req.UserPasswordResetReq;
@@ -162,6 +163,25 @@ public class UserController {
             throw new BusinessException(401, "未登录");
         }
         userService.changeCurrentPassword(userId, req);
+        return R.ok();
+    }
+
+    /**
+     * 当前登录用户自助修改基本信息（个人中心）。
+     *
+     * <p>不需要 {@code system:user:*} 权限，任何登录用户都可修改自己的昵称 / 邮箱 / 手机 / 性别。
+     * 状态、角色、备注等需通过用户管理接口由管理员调整。</p>
+     *
+     * @param req 待修改字段
+     */
+    @Operation(summary = "修改当前用户基本信息", description = "个人中心使用：仅允许更新昵称 / 邮箱 / 手机 / 性别")
+    @PutMapping("/profile")
+    public R<Void> updateProfile(@RequestBody @Valid UserBasicInfoUpdateReq req) {
+        Long userId = UserContextHolder.getUserId();
+        if (userId == null) {
+            throw new BusinessException(401, "未登录");
+        }
+        userService.updateCurrentUserBasicInfo(userId, req);
         return R.ok();
     }
 

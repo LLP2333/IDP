@@ -2,6 +2,7 @@ package com.qvqw.idp.user;
 
 import com.qvqw.idp.common.api.PageResp;
 import com.qvqw.idp.user.model.query.UserQuery;
+import com.qvqw.idp.user.model.req.UserBasicInfoUpdateReq;
 import com.qvqw.idp.user.model.req.UserCreateReq;
 import com.qvqw.idp.user.model.req.UserPasswordChangeReq;
 import com.qvqw.idp.user.model.req.UserPasswordResetReq;
@@ -35,6 +36,17 @@ public interface UserService {
 
     /** 当前登录用户自助修改密码（旧密码校验 + 新密码策略校验 + 历史密码校验）。 */
     void changeCurrentPassword(Long userId, UserPasswordChangeReq req);
+
+    /**
+     * 当前登录用户自助修改基本信息（昵称 / 邮箱 / 手机 / 性别）。
+     *
+     * <p>不允许修改 {@code status} / {@code description} / 角色，避免越权。
+     * 字段为 {@code null} 时跳过该字段，邮箱 / 手机为 {@code ""} 表示主动清除。</p>
+     *
+     * @param userId 当前用户 ID
+     * @param req    待修改字段
+     */
+    void updateCurrentUserBasicInfo(Long userId, UserBasicInfoUpdateReq req);
 
     /** 由 auth 模块用于登录时校验账号。返回值包含原始密码哈希。 */
     Optional<UserCredential> findCredential(String username);

@@ -79,6 +79,7 @@ sequenceDiagram
 | GET | `/auth/user/route` | 是 | 返回当前登录用户可见的菜单树（type=1/2，按 sort 排序）；admin 直返全部启用菜单，普通用户按角色聚合。前端动态侧边栏数据源，详见 [`docs/menu.md`](menu.md) |
 | GET | `/auth/captcha` | 否 | 返回 `{ captchaId, image, expiresIn }`，`image` 是 SVG 的 Data URL |
 | POST | `/system/user/password` | 是 | 当前用户自助改密：body `{ oldPassword, newPassword }`；走 `PasswordValidator` 校验 + 写历史 |
+| PUT | `/system/user/profile` | 是 | 当前用户自助修改基本信息（个人中心）：body `{ nickname?, email?, phone?, gender? }`；任意登录用户可调用，无需 `system:user:*` 权限。`email` / `phone` 为 `""` 表示主动清除（落库为 `null`） |
 
 成功响应统一为：
 
