@@ -55,6 +55,25 @@ public interface UserService {
     Optional<UserDetailResp> findById(Long id);
 
     /**
+     * 列出全部启用（{@code status=1}）用户的 ID。
+     *
+     * <p>供 message / notice 等需要 “全员通知” 的模块按 ID 集合 fan-out。</p>
+     *
+     * @return 启用用户 ID 列表
+     */
+    List<Long> listEnabledUserIds();
+
+    /**
+     * 按 ID 列表批量取用户的显示名（nickname 优先，否则 username）。
+     *
+     * <p>供 notice 模块在列表 / 详情中渲染 “发布人” 一列。</p>
+     *
+     * @param ids 用户 ID 列表
+     * @return userId → displayName 映射；不存在的 ID 不会出现在结果中
+     */
+    java.util.Map<Long, String> mapDisplayNames(List<Long> ids);
+
+    /**
      * 累加某用户的登录失败计数，到达阈值时同步设置锁定到期时间。
      *
      * @param userId    用户 ID

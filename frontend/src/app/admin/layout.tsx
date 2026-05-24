@@ -28,6 +28,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { NoticePopup } from "~/components/system/notice-popup";
+import { NotificationBell } from "~/components/system/notification-bell";
 import { SiteFooter } from "~/components/site-footer";
 import { Button } from "~/components/ui/button";
 import { getUserInfo, logout } from "~/lib/api/auth";
@@ -341,6 +343,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex flex-1 flex-col">
         <header className="flex h-14 items-center justify-end border-b border-zinc-200 bg-white px-6">
           <div className="flex items-center gap-3 text-sm">
+            <NotificationBell />
             <Link
               href="/admin/profile"
               className="flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-zinc-100"
@@ -372,6 +375,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <main className="flex-1 overflow-auto p-6">{children}</main>
         <SiteFooter className="border-t border-zinc-200 bg-white" />
       </div>
+      <NoticePopup />
     </div>
   );
 }

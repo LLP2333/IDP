@@ -63,6 +63,12 @@ public class MenuSeeder implements CommandLineRunner {
         Menu siteMenu = ensureMenu("网站配置", systemDir.getId(),
                 "/admin/system/config", "SiteConfig", "system/config/index", "settings",
                 140, "网站配置（含站点 / 安全 / 登录三组参数）");
+        Menu dictMenu = ensureMenu("字典管理", systemDir.getId(),
+                "/admin/system/dict", "Dict", "system/dict/index", "book",
+                150, "字典管理菜单");
+        Menu noticeMenu = ensureMenu("通知公告", systemDir.getId(),
+                "/admin/system/notice", "Notice", "system/notice/index", "bell",
+                160, "通知公告菜单");
 
         // 老库迁移：早期版本曾把 “安全配置 / 登录配置” 建成 type=2 子菜单，
         // 现在统一收编到 “网站配置” 下。把它们的子按钮 reparent 到 siteMenu，再删除多余菜单。
@@ -99,7 +105,17 @@ public class MenuSeeder implements CommandLineRunner {
                         new ButtonDef("system:securityConfig:get", "查询安全配置"),
                         new ButtonDef("system:securityConfig:update", "修改安全配置"),
                         new ButtonDef("system:loginConfig:get", "查询登录配置"),
-                        new ButtonDef("system:loginConfig:update", "修改登录配置"))));
+                        new ButtonDef("system:loginConfig:update", "修改登录配置"))),
+                new MenuButtons(dictMenu, List.of(
+                        new ButtonDef("system:dict:list", "查询字典"),
+                        new ButtonDef("system:dict:add", "新增字典"),
+                        new ButtonDef("system:dict:update", "修改字典"),
+                        new ButtonDef("system:dict:delete", "删除字典"))),
+                new MenuButtons(noticeMenu, List.of(
+                        new ButtonDef("system:notice:list", "查询公告"),
+                        new ButtonDef("system:notice:add", "新增公告"),
+                        new ButtonDef("system:notice:update", "修改公告"),
+                        new ButtonDef("system:notice:delete", "删除公告"))));
 
         int sort = 1000;
         int created = 0;
@@ -242,6 +258,8 @@ public class MenuSeeder implements CommandLineRunner {
                 "system:menu:list", "system:menu:add", "system:menu:update", "system:menu:delete",
                 "system:siteConfig:get", "system:siteConfig:update",
                 "system:securityConfig:get", "system:securityConfig:update",
-                "system:loginConfig:get", "system:loginConfig:update"));
+                "system:loginConfig:get", "system:loginConfig:update",
+                "system:dict:list", "system:dict:add", "system:dict:update", "system:dict:delete",
+                "system:notice:list", "system:notice:add", "system:notice:update", "system:notice:delete"));
     }
 }

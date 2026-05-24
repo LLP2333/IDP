@@ -44,10 +44,22 @@ com.qvqw.idp
 │   ├── UserController             # /system/user CRUD + 改密 + 分配角色 + /profile 个人中心自助改信息
 │   ├── UserService, User, UserPasswordHistory
 │   └── internal/UserServiceImpl, UserRepository, UserPasswordHistoryRepository, PasswordValidator, AdminSeeder
-└── role/                          # 角色管理
-    ├── RoleController             # /system/role CRUD + 分配菜单
-    ├── RoleService, Role, UserRole, RoleMenu
-    └── internal/RoleServiceImpl, RoleRepository, UserRoleRepository, RoleMenuRepository, RoleSeeder, RoleMenuSeeder
+├── role/                          # 角色管理
+│   ├── RoleController             # /system/role CRUD + 分配菜单
+│   ├── RoleService, Role, UserRole, RoleMenu
+│   └── internal/RoleServiceImpl, RoleRepository, UserRoleRepository, RoleMenuRepository, RoleSeeder, RoleMenuSeeder
+├── dict/                          # 字典模块（业务可配置枚举仓库）
+│   ├── DictController             # /system/dict/* CRUD + /{code}/item 公开接口
+│   ├── DictService, Dict, DictItem
+│   └── internal/DictServiceImpl, DictRepository, DictItemRepository, DictSeeder
+├── message/                       # 站内消息收件箱
+│   ├── MessageController          # /system/message/* 当前用户视角的分页 / 未读数 / 标已读
+│   ├── MessageService, Message, MessageLog
+│   └── internal/MessageServiceImpl, MessageRepository, MessageLogRepository
+└── notice/                        # 通知公告（草稿 / 立即发布 / 定时发布）
+    ├── NoticeController           # /system/notice/* CRUD + popup + read + dashboard
+    ├── NoticeService, Notice, NoticeLog, NoticeScope/NoticeMethod/NoticeStatus
+    └── internal/NoticeServiceImpl, NoticeScheduler, NoticeRepository, NoticeLogRepository
 ```
 
 模块依赖：
@@ -66,6 +78,11 @@ flowchart LR
   role --> common
   menu --> common
   option --> common
+  message --> user
+  notice --> user
+  notice --> message
+  notice --> menu
+  dict --> common
 ```
 
 要点：
@@ -86,10 +103,17 @@ flowchart LR
 | `idp_sys_option` | 系统参数 | `category`, `code`, `option_value`, `default_value`, 联合唯一 `(category, code)` |
 | `idp_sys_menu` | 菜单（同时承担按钮权限载体） | `title`, `parent_id`, `type (1=目录/2=菜单/3=按钮)`, `path`, `name`, `component`, `icon`, `is_external/is_cache/is_hidden`, `permission unique`, `sort`, `status`, `is_system` |
 | `idp_sys_role_menu` | 角色-菜单关联 | `role_id`, `menu_id`（联合主键） |
+| `idp_sys_dict` | 字典 | `code unique`, `name`, `description`, `is_system` |
+| `idp_sys_dict_item` | 字典明细 | `dict_id`, `label`, `item_value`（H2 保留字回避）, `color`, `sort`, `status`, `is_system`，联合唯一 `(dict_id, item_value)` |
+| `idp_sys_notice` | 通知公告 | `title`, `content`, `type`, `notice_scope`, `notice_users (JSON List<Long>)`, `notice_methods (JSON List<Integer>)`, `is_timing`, `publish_time`, `is_top`, `status` |
+| `idp_sys_notice_log` | 公告已读日志 | `notice_id`, `user_id`（联合主键）, `read_time` |
+| `idp_sys_message` | 站内消息 | `type`, `title`, `content`, `path` |
+| `idp_sys_message_log` | 消息已读日志 | `message_id`, `user_id`（联合主键）, `read_time` |
 
 启动时由 Seeder 幂等地创建默认数据：
 - `RoleSeeder`（@Order(10)）：角色 `admin`、`user`
-- `MenuSeeder`（@Order(15)）：1 目录 + 6 菜单 + 21 按钮，共 28 条系统内置菜单
+- `DictSeeder`（@Order(12)）：4 个字典 + 14 条明细（`notice_type` / `notice_scope_enum` / `notice_method_enum` / `notice_status_enum`）
+- `MenuSeeder`（@Order(15)）：1 目录 + 6 菜单 + 字典 / 通知公告 / 消息中心相关条目 + 全部按钮
 - `RoleMenuSeeder`（@Order(17)）：把全部系统内置菜单绑定到 `admin` 角色
 - `AdminSeeder`（@Order(20)）：默认账号 `admin / 123456`（首次启动后请尽快通过接口修改密码）
 - `OptionSeeder`（@Order(30)）：15 条 SITE / PASSWORD / LOGIN 默认配置
@@ -135,8 +159,18 @@ flowchart LR
 | POST | `/system/option/image` | 上传 base64 图片 |
 | GET | `/system/option/site` | 公开站点配置（白名单） |
 | GET | `/system/option/login` | 公开登录配置（白名单） |
+| GET | `/system/dict/list` | 字典列表（admin 配置） |
+| GET / POST / PUT / DELETE | `/system/dict` 系列 | 字典与明细 CRUD（详见 [`../docs/dict.md`](../docs/dict.md)） |
+| GET | `/system/dict/{code}/item` | 公开接口：按 code 取启用明细，前端 `useDict` 调用 |
+| GET / POST / PUT / DELETE | `/system/notice` 系列 | 通知公告 CRUD（详见 [`../docs/notice.md`](../docs/notice.md)） |
+| GET | `/system/notice/popup` | 当前用户登录弹窗未读公告 |
+| POST | `/system/notice/{id}/read` | 标记已读 |
+| GET | `/system/notice/dashboard` | Dashboard 最新公告摘要（默认 5 条） |
+| GET | `/system/message` | 当前用户消息分页 |
+| GET | `/system/message/unread-count` | 当前用户未读数（顶栏 bell） |
+| POST | `/system/message/{id}/read`、`/system/message/read-all` | 单条 / 全部已读 |
 
-详细设计参见 [`../docs/auth.md`](../docs/auth.md)、[`../docs/user-role.md`](../docs/user-role.md)、[`../docs/system-config.md`](../docs/system-config.md) 与 [`../docs/menu.md`](../docs/menu.md)。
+详细设计参见 [`../docs/auth.md`](../docs/auth.md)、[`../docs/user-role.md`](../docs/user-role.md)、[`../docs/system-config.md`](../docs/system-config.md)、[`../docs/menu.md`](../docs/menu.md)、[`../docs/dict.md`](../docs/dict.md)、[`../docs/notice.md`](../docs/notice.md) 与 [`../docs/message.md`](../docs/message.md)。
 
 ## OpenAPI / Swagger UI
 

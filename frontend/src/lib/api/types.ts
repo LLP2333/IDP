@@ -354,3 +354,136 @@ export interface MenuReq {
   status?: number;
   description?: string | null;
 }
+
+// ============== dict ==============
+
+/** 字典信息。 */
+export interface DictResp {
+  id: number;
+  name: string;
+  code: string;
+  description: string | null;
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+/** 字典新增 / 修改请求。 */
+export interface DictReq {
+  name: string;
+  code: string;
+  description?: string;
+}
+
+/** 字典明细。 */
+export interface DictItemResp {
+  id: number;
+  dictId: number;
+  label: string;
+  value: string;
+  color: string | null;
+  sort: number;
+  status: number;
+  isSystem: boolean;
+}
+
+/** 字典明细新增 / 修改请求。 */
+export interface DictItemReq {
+  label: string;
+  value: string;
+  color?: string | null;
+  sort?: number;
+  status?: number;
+}
+
+// ============== notice ==============
+
+/** 通知范围：1=所有人, 2=指定用户。 */
+export type NoticeScope = 1 | 2;
+
+/** 通知方式：1=系统消息, 2=登录弹窗。 */
+export type NoticeMethod = 1 | 2;
+
+/** 公告状态：1=草稿, 2=待发布, 3=已发布。 */
+export type NoticeStatus = 1 | 2 | 3;
+
+/** 公告列表项。 */
+export interface NoticeResp {
+  id: number;
+  title: string;
+  type: string;
+  noticeScope: NoticeScope;
+  noticeMethods: NoticeMethod[] | null;
+  isTiming: boolean;
+  publishTime: string | null;
+  isTop: boolean;
+  status: NoticeStatus;
+  isRead: boolean | null;
+  createUserString: string | null;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+/** 公告详情：列表 + 正文 + noticeUsers。 */
+export interface NoticeDetailResp extends NoticeResp {
+  content: string;
+  noticeUsers: number[] | null;
+}
+
+/** 公告分页查询条件。 */
+export interface NoticePageQuery {
+  title?: string;
+  type?: string;
+  status?: NoticeStatus;
+  page?: number;
+  size?: number;
+}
+
+/** 公告新增 / 修改请求。 */
+export interface NoticeReq {
+  title: string;
+  content: string;
+  type: string;
+  noticeScope: NoticeScope;
+  noticeUsers?: number[];
+  noticeMethods?: NoticeMethod[];
+  isTiming: boolean;
+  /** ISO 字符串，如 `2026-06-01T10:00:00`。 */
+  publishTime?: string | null;
+  isTop?: boolean;
+  /** 1=草稿，3=发布（后端按 isTiming 自动转 2）。 */
+  status: NoticeStatus;
+}
+
+/** Dashboard 公告摘要。 */
+export interface DashboardNoticeResp {
+  id: number;
+  title: string;
+  type: string;
+  isTop: boolean;
+  publishTime: string | null;
+  isRead: boolean;
+}
+
+// ============== message ==============
+
+/** 站内消息。 */
+export interface MessageResp {
+  id: number;
+  type: number;
+  title: string;
+  content: string;
+  path: string | null;
+  isRead: boolean;
+  readTime: string | null;
+  createdAt: string;
+}
+
+/** 消息收件箱查询条件。 */
+export interface MessagePageQuery {
+  title?: string;
+  isRead?: boolean;
+  page?: number;
+  size?: number;
+}

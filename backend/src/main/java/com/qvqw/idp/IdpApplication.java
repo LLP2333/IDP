@@ -2,13 +2,17 @@ package com.qvqw.idp;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Spring Boot 主入口。
  *
- * <p>启动后将由 Spring Modulith 自动扫描 {@code com.qvqw.idp} 下的各模块。</p>
+ * <p>启动后将由 Spring Modulith 自动扫描 {@code com.qvqw.idp} 下的各模块。
+ * 同时开启 {@link EnableScheduling} 让 notice 模块的 {@code NoticeScheduler}
+ * 可以按 fixedDelay 触发定时发布。</p>
  */
 @SpringBootApplication
+@EnableScheduling
 public class IdpApplication {
 
     /**

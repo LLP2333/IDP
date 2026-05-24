@@ -294,6 +294,34 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
+     * 列出全部启用用户的 ID（供 notice / message 等模块全员通知场景使用）。
+     */
+    @Override
+    public List<Long> listEnabledUserIds() {
+        return userRepository.findAll().stream()
+                .filter(u -> Integer.valueOf(1).equals(u.getStatus()))
+                .map(User::getId)
+                .toList();
+    }
+
+    /**
+     * 批量取用户显示名：优先 nickname，其次 username。
+     */
+    @Override
+    public Map<Long, String> mapDisplayNames(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> result = new HashMap<>();
+        for (User u : userRepository.findAllByIdIn(ids)) {
+            String display = u.getNickname() != null && !u.getNickname().isBlank()
+                    ? u.getNickname() : u.getUsername();
+            result.put(u.getId(), display);
+        }
+        return result;
+    }
+
+    /**
      * 当前用户自助修改基本信息：仅允许更新昵称 / 邮箱 / 手机 / 性别。
      *
      * <p>对 {@code email} / {@code phone}：</p>
