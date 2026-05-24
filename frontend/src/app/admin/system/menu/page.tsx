@@ -1,8 +1,32 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  Banknote,
+  BarChart3,
+  Bell,
+  Boxes,
+  ChevronDown,
+  ChevronRight,
+  Database,
+  ExternalLink,
+  FileText,
+  Folder,
+  Globe,
+  KeyRound,
+  LayoutDashboard,
+  type LucideIcon,
+  LogIn,
+  Menu as MenuIcon,
+  Pencil,
+  Plus,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Trash2,
+  Users,
+} from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "~/components/ui/badge";
@@ -21,6 +45,40 @@ import {
 import type { MenuReq, MenuResp, MenuType } from "~/lib/api/types";
 import { usePermission } from "~/lib/hooks/use-permission";
 import { cn } from "~/lib/utils";
+
+/**
+ * 与侧边栏共享一份的 lucide 图标映射；未命中时退回 {@link Folder}，
+ * 字段为空则不渲染图标占位（让标题更靠左对齐）。
+ */
+const ICON_MAP: Record<string, LucideIcon> = {
+  users: Users,
+  user: Users,
+  "shield-check": ShieldCheck,
+  shield: Shield,
+  menu: MenuIcon,
+  settings: Settings,
+  setting: Settings,
+  "key-round": KeyRound,
+  key: KeyRound,
+  "log-in": LogIn,
+  login: LogIn,
+  dashboard: LayoutDashboard,
+  layout: LayoutDashboard,
+  folder: Folder,
+  boxes: Boxes,
+  database: Database,
+  globe: Globe,
+  bell: Bell,
+  file: FileText,
+  banknote: Banknote,
+  chart: BarChart3,
+  external: ExternalLink,
+};
+
+function resolveIcon(icon: string | null | undefined): LucideIcon | null {
+  if (!icon) return null;
+  return ICON_MAP[icon.trim().toLowerCase()] ?? Folder;
+}
 
 /**
  * 菜单管理弹窗内部表单结构（受控字段）。
@@ -240,17 +298,18 @@ export default function MenuPage() {
     else createMutation.mutate(req);
   }
 
-  /** 递归渲染一行（树形）。 */
+  /** 递归渲染一行（树形）。使用 {@link Fragment} + 显式 key，避免 React 报缺 key 警告导致行复用错乱。 */
   function renderRow(node: MenuResp, depth: number): React.ReactNode {
     const hasChildren = (node.children?.length ?? 0) > 0;
     const isOpen = expanded.has(node.id);
     const canAddChild = node.type !== 3;
+    const Icon = resolveIcon(node.icon);
     return (
-      <>
-        <tr key={node.id} className="border-t border-zinc-100 hover:bg-zinc-50/60">
+      <Fragment key={node.id}>
+        <tr className="border-t border-zinc-100 hover:bg-zinc-50/60">
           <td className="px-3 py-2 align-middle">
             <div
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 whitespace-nowrap"
               style={{ paddingLeft: depth * 16 }}
             >
               {hasChildren ? (
@@ -272,9 +331,7 @@ export default function MenuPage() {
               ) : (
                 <span className="inline-block w-3.5" />
               )}
-              {node.icon ? (
-                <span className="text-xs text-zinc-400">[{node.icon}]</span>
-              ) : null}
+              {Icon ? <Icon size={14} className="text-zinc-400" /> : null}
               <span className="font-medium text-zinc-800">{node.title}</span>
               {node.isSystem ? <Badge tone="info">系统</Badge> : null}
             </div>
@@ -290,16 +347,16 @@ export default function MenuPage() {
             )}
           </td>
           <td className="px-3 py-2 align-middle text-center">{node.sort}</td>
-          <td className="px-3 py-2 align-middle text-xs text-zinc-500">
+          <td className="max-w-[200px] truncate px-3 py-2 align-middle text-xs text-zinc-500" title={node.path ?? undefined}>
             {node.path ?? "—"}
           </td>
-          <td className="px-3 py-2 align-middle text-xs text-zinc-500">
+          <td className="max-w-[140px] truncate px-3 py-2 align-middle text-xs text-zinc-500" title={node.name ?? undefined}>
             {node.name ?? "—"}
           </td>
-          <td className="px-3 py-2 align-middle text-xs text-zinc-500">
+          <td className="max-w-[200px] truncate px-3 py-2 align-middle text-xs text-zinc-500" title={node.component ?? undefined}>
             {node.component ?? "—"}
           </td>
-          <td className="px-3 py-2 align-middle text-xs text-zinc-500">
+          <td className="max-w-[200px] truncate px-3 py-2 align-middle text-xs text-zinc-500" title={node.permission ?? undefined}>
             {node.permission ?? "—"}
           </td>
           <td className="px-3 py-2 align-middle">
@@ -361,7 +418,7 @@ export default function MenuPage() {
         {hasChildren && isOpen
           ? node.children!.map((c) => renderRow(c, depth + 1))
           : null}
-      </>
+      </Fragment>
     );
   }
 
@@ -435,7 +492,12 @@ export default function MenuPage() {
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 text-zinc-600">
             <tr>
-              <th className="px-3 py-2 text-left font-medium">菜单标题</th>
+              <th
+                className="px-3 py-2 text-left font-medium"
+                style={{ minWidth: 220 }}
+              >
+                菜单标题
+              </th>
               <th className="px-3 py-2 text-left font-medium" style={{ width: 80 }}>
                 类型
               </th>

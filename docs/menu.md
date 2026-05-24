@@ -37,7 +37,7 @@
 
 **启动 Seeder**
 
-1. `MenuSeeder`（{@code @Order(15)}）按 “目录 → 菜单 → 按钮” 三层灌入：1 个目录（系统管理）+ 6 个菜单（用户 / 角色 / 菜单 / 网站 / 安全 / 登录）+ 21 个按钮，共 28 条；
+1. `MenuSeeder`（{@code @Order(15)}）按 “目录 → 菜单 → 按钮” 三层灌入：1 个目录（系统管理）+ 4 个菜单（用户 / 角色 / 菜单 / 网站配置）+ 21 个按钮，共 26 条；老库里如果存在历史遗留的 “安全配置 / 登录配置” 两个 type=2 菜单，启动时会自动把它们的子按钮 reparent 到 “网站配置” 并删除多余菜单；
 2. `RoleMenuSeeder`（{@code @Order(17)}）把所有 `is_system=true` 的菜单默认绑定到 `admin` 角色；
 3. 普通业务角色不预绑定菜单，由 admin 在前端 “角色管理 → 分配菜单” 中按需勾选。
 
@@ -50,9 +50,7 @@
 | 用户管理 | 用户管理（/admin/system/user） | `system:user:list/add/update/delete/resetPassword/updateRole` |
 | 角色管理 | 角色管理（/admin/system/role） | `system:role:list/add/update/delete/assignPermission`（“分配菜单” 按钮复用了 assignPermission 这一权限码，语义保持向下兼容） |
 | 菜单管理 | 菜单管理（/admin/system/menu） | `system:menu:list/add/update/delete` |
-| 网站配置 | 网站配置（/admin/system/config） | `system:siteConfig:get/update` |
-| 安全配置 | 安全配置（/admin/system/config?tab=password） | `system:securityConfig:get/update` |
-| 登录配置 | 登录配置（/admin/system/config?tab=login） | `system:loginConfig:get/update` |
+| 网站配置 | 网站配置（/admin/system/config，含站点 / 安全 / 登录三组 tab） | `system:siteConfig:get/update`、`system:securityConfig:get/update`、`system:loginConfig:get/update`（全部直接挂在 “网站配置” 菜单下） |
 
 ---
 

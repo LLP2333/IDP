@@ -9,7 +9,10 @@ import { Toaster } from "sonner";
 export const metadata: Metadata = {
   title: "IDP 管理系统",
   description: "通用企业级后台管理系统",
-  icons: [{ rel: "icon", url: "/favicon.ico" }],
+  icons: [
+    { rel: "icon", type: "image/png", url: "/logo.png" },
+    { rel: "shortcut icon", url: "/favicon.ico" },
+  ],
 };
 
 const geist = Geist({

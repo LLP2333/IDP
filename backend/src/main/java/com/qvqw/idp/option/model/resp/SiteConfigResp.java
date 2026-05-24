@@ -16,10 +16,10 @@ public class SiteConfigResp {
     @Schema(description = "系统描述", example = "通用企业级后台管理系统")
     private String description;
 
-    @Schema(description = "Logo URL 或 base64", example = "/logo.svg")
+    @Schema(description = "Logo URL 或 base64", example = "/logo.png")
     private String logo;
 
-    @Schema(description = "Favicon URL 或 base64", example = "/favicon.ico")
+    @Schema(description = "Favicon URL 或 base64", example = "/logo.png")
     private String favicon;
 
     @Schema(description = "版权声明", example = "Copyright © IDP")

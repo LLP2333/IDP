@@ -37,14 +37,26 @@ public class OptionSeeder implements CommandLineRunner {
     public void run(String... args) {
         List<SystemOption> all = defaultOptions();
         int created = 0;
+        int refreshed = 0;
         for (SystemOption o : all) {
-            if (!optionRepository.existsByCode(o.getCode())) {
+            SystemOption existing = optionRepository.findByCode(o.getCode()).orElse(null);
+            if (existing == null) {
                 optionRepository.save(o);
                 created++;
+                continue;
+            }
+            // 既有记录：仅在 defaultValue 漂移时回写，永远不动 value（保留管理员手工修改）。
+            if (!java.util.Objects.equals(existing.getDefaultValue(), o.getDefaultValue())) {
+                existing.setDefaultValue(o.getDefaultValue());
+                optionRepository.save(existing);
+                refreshed++;
             }
         }
         if (created > 0) {
             log.info("[初始化] 已新增 {} 条系统参数默认值", created);
+        }
+        if (refreshed > 0) {
+            log.info("[初始化] 已刷新 {} 条系统参数的 defaultValue", refreshed);
         }
     }
 
@@ -60,8 +72,8 @@ public class OptionSeeder implements CommandLineRunner {
         list.add(build(OptionCategory.SITE, "系统描述", "SITE_DESCRIPTION", "通用企业级后台管理系统", "用于 SEO 的网站元描述"));
         list.add(build(OptionCategory.SITE, "版权声明", "SITE_COPYRIGHT", "Copyright © IDP", "显示在页面底部的版权声明文本"));
         list.add(build(OptionCategory.SITE, "备案号", "SITE_BEIAN", null, "工信部 ICP 备案编号"));
-        list.add(build(OptionCategory.SITE, "系统图标", "SITE_FAVICON", "/favicon.ico", "浏览器标签页显示的网站图标（建议 .ico）"));
-        list.add(build(OptionCategory.SITE, "系统 LOGO", "SITE_LOGO", "/logo.svg", "登录页和系统导航栏显示的 Logo（建议 .svg）"));
+        list.add(build(OptionCategory.SITE, "系统图标", "SITE_FAVICON", "/logo.png", "浏览器标签页显示的网站图标（建议 .ico / .png）"));
+        list.add(build(OptionCategory.SITE, "系统 LOGO", "SITE_LOGO", "/logo.png", "登录页和系统导航栏显示的 Logo（建议 .svg / .png）"));
         // PASSWORD
         list.add(build(OptionCategory.PASSWORD, "密码错误锁定阈值", "PASSWORD_ERROR_LOCK_COUNT", "5", "连续登录失败次数（0-10，0=禁用锁定）"));
         list.add(build(OptionCategory.PASSWORD, "账号锁定时长（分钟）", "PASSWORD_ERROR_LOCK_MINUTES", "5", "账号锁定后自动解锁的时间（1-1440）"));

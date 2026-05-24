@@ -18,9 +18,13 @@ import java.util.Optional;
  * <p>启动时幂等地灌入三层结构：</p>
  * <ol>
  *   <li>顶级目录 {@code 系统管理}（{@code type=1}），用于侧边栏一级菜单分组；</li>
- *   <li>子菜单（{@code type=2}）：用户管理 / 角色管理 / 菜单管理 / 系统配置；</li>
+ *   <li>子菜单（{@code type=2}）：用户管理 / 角色管理 / 菜单管理 / 网站配置；</li>
  *   <li>每个子菜单下的按钮（{@code type=3}），{@code permission} 字段保存具体权限码。</li>
  * </ol>
+ *
+ * <p>“网站配置” 页面通过 tab 同时承载站点 / 安全 / 登录 三组参数，因此
+ * {@code system:siteConfig:* / system:securityConfig:* / system:loginConfig:*} 全部直接挂在
+ * “网站配置” 菜单下，不再为安全 / 登录单独造 type=2 菜单。</p>
  *
  * <p>菜单的 {@code path} / {@code name} / {@code component} 取与前端 Next.js 文件路由对齐的相对路径，
  * 仅作为元数据保存；前端侧边栏按 {@code path} 跳转。实际角色 - 菜单绑定在
@@ -58,13 +62,12 @@ public class MenuSeeder implements CommandLineRunner {
                 130, "菜单管理菜单");
         Menu siteMenu = ensureMenu("网站配置", systemDir.getId(),
                 "/admin/system/config", "SiteConfig", "system/config/index", "settings",
-                140, "网站基本信息");
-        Menu securityMenu = ensureMenu("安全配置", systemDir.getId(),
-                "/admin/system/config?tab=password", "SecurityConfig",
-                "system/config/index", "shield", 150, "密码策略");
-        Menu loginMenu = ensureMenu("登录配置", systemDir.getId(),
-                "/admin/system/config?tab=login", "LoginConfig",
-                "system/config/index", "log-in", 160, "登录相关开关");
+                140, "网站配置（含站点 / 安全 / 登录三组参数）");
+
+        // 老库迁移：早期版本曾把 “安全配置 / 登录配置” 建成 type=2 子菜单，
+        // 现在统一收编到 “网站配置” 下。把它们的子按钮 reparent 到 siteMenu，再删除多余菜单。
+        migrateLegacySubMenu(systemDir.getId(), "安全配置", siteMenu.getId());
+        migrateLegacySubMenu(systemDir.getId(), "登录配置", siteMenu.getId());
 
         record ButtonDef(String permission, String title) {
         }
@@ -89,13 +92,12 @@ public class MenuSeeder implements CommandLineRunner {
                         new ButtonDef("system:menu:add", "新增菜单"),
                         new ButtonDef("system:menu:update", "修改菜单"),
                         new ButtonDef("system:menu:delete", "删除菜单"))),
+                // 网站 / 安全 / 登录三组按钮全部直接挂在 “网站配置” 下
                 new MenuButtons(siteMenu, List.of(
                         new ButtonDef("system:siteConfig:get", "查询网站配置"),
-                        new ButtonDef("system:siteConfig:update", "修改网站配置"))),
-                new MenuButtons(securityMenu, List.of(
+                        new ButtonDef("system:siteConfig:update", "修改网站配置"),
                         new ButtonDef("system:securityConfig:get", "查询安全配置"),
-                        new ButtonDef("system:securityConfig:update", "修改安全配置"))),
-                new MenuButtons(loginMenu, List.of(
+                        new ButtonDef("system:securityConfig:update", "修改安全配置"),
                         new ButtonDef("system:loginConfig:get", "查询登录配置"),
                         new ButtonDef("system:loginConfig:update", "修改登录配置"))));
 
@@ -169,10 +171,48 @@ public class MenuSeeder implements CommandLineRunner {
                 });
     }
 
+    /**
+     * 老库迁移：把 {@code (parentId, type=2, title)} 命中的旧菜单的所有子节点
+     * reparent 到 {@code newParentId}，再删除旧菜单本身。
+     *
+     * <p>纯增量场景（新装库）下不会命中任何记录，直接 noop。</p>
+     *
+     * @param parentId    旧菜单的父节点（一般为 “系统管理” 目录）
+     * @param title       旧菜单标题（“安全配置” / “登录配置”）
+     * @param newParentId 子节点要被迁到的新父节点（一般为 “网站配置” 菜单）
+     */
+    private void migrateLegacySubMenu(Long parentId, String title, Long newParentId) {
+        Optional<Menu> legacy = menuRepository.findAll().stream()
+                .filter(m -> parentId.equals(m.getParentId())
+                        && Integer.valueOf(TYPE_MENU).equals(m.getType())
+                        && title.equals(m.getTitle()))
+                .findFirst();
+        if (legacy.isEmpty()) {
+            return;
+        }
+        Menu legacyMenu = legacy.get();
+        List<Menu> children = menuRepository.findAll().stream()
+                .filter(m -> legacyMenu.getId().equals(m.getParentId()))
+                .toList();
+        for (Menu child : children) {
+            child.setParentId(newParentId);
+            menuRepository.save(child);
+        }
+        menuRepository.deleteById(legacyMenu.getId());
+        log.info("[迁移] 已移除遗留菜单「{}」(id={}), {} 个子节点已转移到 parentId={}",
+                title, legacyMenu.getId(), children.size(), newParentId);
+    }
+
     /** 保证某按钮节点存在；不存在则插入并返回 true（用于统计新增数）。 */
     private boolean ensureButton(String permission, String title, Long parentId, int sort) {
         Optional<Menu> existing = menuRepository.findByPermission(permission);
         if (existing.isPresent()) {
+            // 老库迁移兜底：按钮的 parentId 可能仍指向已删除的旧菜单，矫正一次。
+            Menu m = existing.get();
+            if (!parentId.equals(m.getParentId())) {
+                m.setParentId(parentId);
+                menuRepository.save(m);
+            }
             return false;
         }
         Menu m = new Menu();
