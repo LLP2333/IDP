@@ -1,6 +1,6 @@
 # IDP 项目
 
-IDP是一个通用的企业级的后台管理系统.
+IDP 是一个通用的企业级后台管理系统。
 
 ---
 
@@ -9,10 +9,11 @@ IDP是一个通用的企业级的后台管理系统.
 ```text
 idp/
 ├── backend/        # Spring Boot 后端（Spring Modulith 模块化结构）
-├── frontend/       # T3 Stack 前端（Next.js + TypeScript + tRPC + Drizzle）
+├── frontend/       # Next.js 15 前端（App Router + React 19 + Tailwind v4）
 ├── docker/         # Docker 相关脚本与配置
 ├── docs/           # 项目设计文档与说明
 ├── compose.yaml    # 本地依赖编排（PostgreSQL + Redis）
+├── thirdPart/      # 第三方开源项目用来参考（仅参考代码逻辑）
 └── readme.md
 ```
 
@@ -22,10 +23,11 @@ idp/
 
 | 层 | 技术 |
 | --- | --- |
-| 后端 | Java + Spring Boot + Spring Modulith |
-| 前端 | TypeScript + Next.js 15 (App Router) + React 19 + tRPC + Drizzle ORM + Tailwind CSS v4 + NextAuth |
-| 数据库 | PostgreSQL |
-| 缓存 | Redis |
+| 后端 | Java 21 + Spring Boot 4 + Spring Modulith + Spring Security + JWT |
+| 前端 | TypeScript + Next.js 15 (App Router) + React 19 + TanStack Query + Zustand + React Hook Form + Tailwind CSS v4 |
+| 数据库 | PostgreSQL（用户/角色/关联） |
+| 缓存 | Redis（JWT Token Store） |
+| 认证 | 后端发放 JWT，前端通过 fetch 直连 REST API |
 | 单元测试 | JUnit（后端） / Vitest + Testing Library（前端） |
 
 ---
@@ -49,6 +51,8 @@ cd backend
 ./mvnw spring-boot:run
 ```
 
+启动成功后会自动初始化默认角色 `admin / user` 与默认账号 **`admin / 123456`**。
+
 ### 3. 启动前端
 
 详见 [`frontend/README.md`](frontend/README.md)。
@@ -56,10 +60,21 @@ cd backend
 ```bash
 cd frontend
 pnpm install
-cp .env.example .env   # 首次需要，按需填充密钥
-pnpm db:push           # 推送 Drizzle schema 到 Postgres
+cp .env.example .env   # 首次需要
 pnpm dev
 ```
+
+浏览器访问 <http://localhost:3000> 会跳转到 `/login`，使用 `admin / 123456` 登录。
+
+---
+
+## 业务模块
+
+| 模块 | 说明 | 文档 |
+| --- | --- | --- |
+| 认证 | 账号密码登录、JWT 颁发/校验、登出 | [`docs/auth.md`](docs/auth.md) |
+| 用户管理 | 用户 CRUD、分配角色、重置密码 | [`docs/user-role.md`](docs/user-role.md) |
+| 角色管理 | 角色 CRUD、按 code 唯一约束 | [`docs/user-role.md`](docs/user-role.md) |
 
 ---
 
@@ -69,7 +84,7 @@ pnpm dev
 2. **新增功能必须同步更新文档**：包括 `readme.md`、模块级 README 以及 `docs/` 下相应说明。
 3. **目录规范**：
    - 后端遵循 **Spring Modulith** 包结构（参见 `backend/readme.md`）。
-   - 前端遵循 **T3 Stack** 约定（参见 `frontend/README.md`）。
+   - 前端按业务页面 + 组件 + API 客户端组织（参见 `frontend/README.md`）。
 4. **提交前自检**：
    - 后端：`./mvnw verify`
    - 前端：`pnpm check && pnpm test`

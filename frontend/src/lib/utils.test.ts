@@ -23,11 +23,11 @@ describe("apiUrl", () => {
 });
 
 describe("cn", () => {
-  it("过滤掉 falsy 值", () => {
-    expect(cn("a", false, null, undefined, "b")).toBe("a b");
+  it("合并 Tailwind 类名并处理冲突", () => {
+    expect(cn("px-2", "px-4")).toBe("px-4");
   });
 
-  it("没有有效值时返回空字符串", () => {
-    expect(cn(false, null, undefined)).toBe("");
+  it("过滤掉 falsy 值", () => {
+    expect(cn("a", false && "b", null, undefined, "c")).toBe("a c");
   });
 });

@@ -1,8 +1,11 @@
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
 /**
- * 拼接 API URL：把相对路径与 `NEXT_PUBLIC_API_BASE_URL` 合并。
+ * 拼接 API URL：把相对路径与 base 合并。
  *
  * @example
- * apiUrl("/api/projects") => "http://localhost:8080/api/projects"
+ * apiUrl("/api/projects", "http://localhost:8080") => "http://localhost:8080/api/projects"
  */
 export function apiUrl(path: string, baseUrl: string): string {
   const trimmedBase = baseUrl.replace(/\/+$/, "");
@@ -11,10 +14,8 @@ export function apiUrl(path: string, baseUrl: string): string {
 }
 
 /**
- * 简单的 className 合并工具：过滤掉 falsy 值再用空格连接。
+ * Tailwind 类名合并工具：clsx + tailwind-merge。
  */
-export function cn(
-  ...classes: Array<string | false | null | undefined>
-): string {
-  return classes.filter(Boolean).join(" ");
+export function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs));
 }
