@@ -12,9 +12,10 @@ IDP是一个通用的企业级的后台管理系统.
 ```text
 idp/
 ├── backend/      # Spring Boot + Spring Modulith
-├── frontend/     # T3 Stack (Next.js 15 + TS + tRPC + Drizzle)
+├── frontend/     # Next.js 15 + React 19 + TypeScript
 ├── docker/       # Docker 配置
-├── docs/         # 设计/接口文档
+├── docs/         # VitePress 技术文档 Markdown 源文件
+│   └── .vitepress/ # VitePress 站点配置与主题扩展
 ├── compose.yaml  # 本地依赖：PostgreSQL + Redis
 └── readme.md
 ```
@@ -23,6 +24,7 @@ idp/
 
 - **沟通语言**：所有与用户的交互、注释、文档、commit message 默认使用 **中文**。
 - **包管理**：前端固定使用 **pnpm 10**（见 `frontend/package.json` 中的 `packageManager`）；后端使用 Maven Wrapper `./mvnw`。
+- **文档站点**：项目技术文档使用 **VitePress**。`docs/*.md` 是文档源文件，`docs/.vitepress/` 维护导航、侧边栏、搜索、主题与 Mermaid 渲染配置；根目录 `package.json` 提供 `pnpm docs:dev` / `pnpm docs:build` / `pnpm docs:preview`。
 - **数据库**：本地通过 `docker compose up -d` 启动 PostgreSQL（5432）与 Redis（6379）。前后端共用同一个 PostgreSQL 实例。
 - **跨模块通信**：前端通过 `NEXT_PUBLIC_API_BASE_URL` 调用后端 Spring Boot 服务。
 

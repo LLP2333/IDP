@@ -7,6 +7,7 @@
 - 默认使用中文与用户沟通，代码注释、文档、提交信息也优先使用中文。
 - 这是一个通用企业后台系统，包含 `backend` 和 `frontend` 两个主要工程。
 - 前端使用 pnpm 10；后端必须使用 Maven Wrapper，即 `./mvnw`。
+- 项目技术文档使用 VitePress，Markdown 源文件放在 `docs/`，站点配置放在 `docs/.vitepress/`。
 - 本地依赖默认通过 Docker Compose 提供 PostgreSQL `5432` 和 Redis `6379`。
 - 前端通过 `NEXT_PUBLIC_API_BASE_URL` 调用后端 REST API。
 - 提交信息使用中文动词前缀，例如：`新增`、`修复`、`重构`、`文档`、`测试`。
@@ -57,10 +58,11 @@
 - 涉及启动、环境变量、项目结构变化时，更新根目录 `readme.md` 或对应模块 README。
 - 涉及后端接口变化时，更新后端相关 API 文档或 OpenAPI 注解。
 - 涉及前端功能入口、页面、环境变量、脚本时，更新前端相关说明。
+- 涉及 `docs/` Markdown、文档导航、VitePress 主题或配置时，需要确认 `pnpm docs:build` 通过。
 - 如果无法运行必要自检命令，需要在最终回复中明确说明原因和剩余风险。
 
 ## 自检命令
 
 - 前端：`cd frontend && pnpm check && pnpm test`
 - 后端：`cd backend && ./mvnw verify`
-
+- 文档站点：`pnpm docs:build`
