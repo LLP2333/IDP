@@ -150,6 +150,16 @@ API 客户端文件 → 后端接口对应：
 
 `/admin`（概览）与 `/admin/profile`（个人中心：基本信息 + 修改密码）保持硬编码（不属于菜单管理的内容）。详细的菜单数据模型见 [`../docs/menu.md`](../docs/menu.md)。
 
+### 布局与滚动容器
+
+`admin/layout.tsx` 的最外层使用 `h-screen` + `overflow-hidden` 固定为视口高度，左侧 `<aside>` 内的菜单 `<nav>` 与右侧主内容 `<main>` 各自带 `min-h-0 + overflow-(y-)auto`，因此：
+
+- 主内容超长时只在 `<main>` 内部滚动，**侧边栏保持不动**；
+- 菜单超长时只在 `<nav>` 内部滚动，不会撑高页面；
+- 浏览器页面级（`<html>` / `<body>`）不会出现滚动条。
+
+如果以后改回 `min-h-screen` 或去掉 `overflow-hidden`，主内容会撑高最外层并触发页面级滚动，侧边栏就会跟着一起滚 —— 这是已有过的回归，已在 `src/app/admin/layout.test.tsx` 中通过断言关键 className 锁定，不要轻易改动。
+
 ## 个人中心 `/admin/profile`
 
 参考 continew-admin 的个人中心页布局，由 `app/admin/profile/page.tsx` 实现：

@@ -292,8 +292,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex min-h-screen bg-zinc-50">
-      <aside className="flex w-56 flex-col border-r border-zinc-200 bg-white">
+    // 关键：最外层必须固定为视口高度（h-screen + overflow-hidden），
+    // 否则内部 `<main>` 上的 `overflow-auto` 不会生效 ——
+    // 主内容会撑高最外层，触发浏览器页面级滚动，导致左侧菜单跟着滚。
+    <div className="flex h-screen overflow-hidden bg-zinc-50">
+      <aside className="flex h-full w-56 flex-col border-r border-zinc-200 bg-white">
         <div className="border-b border-zinc-200 px-5 py-4">
           <div className="flex items-center gap-2">
             {siteLogo ? (
@@ -312,7 +315,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {siteSubtitle}
           </p>
         </div>
-        <nav className="flex-1 overflow-y-auto px-2 py-3 text-sm">
+        <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3 text-sm">
           <Link
             href="/admin"
             className={cn(
@@ -345,8 +348,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
       </aside>
 
-      <div className="flex flex-1 flex-col">
-        <header className="flex h-14 items-center justify-end border-b border-zinc-200 bg-white px-6">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-14 shrink-0 items-center justify-end border-b border-zinc-200 bg-white px-6">
           <div className="flex items-center gap-3 text-sm">
             <NotificationBell />
             <Link
@@ -377,8 +380,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Button>
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-6">{children}</main>
-        <SiteFooter className="border-t border-zinc-200 bg-white" />
+        <main className="min-h-0 flex-1 overflow-auto p-6">{children}</main>
+        <SiteFooter className="shrink-0 border-t border-zinc-200 bg-white" />
       </div>
       <NoticePopup />
     </div>
