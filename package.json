@@ -1,0 +1,16 @@
+{
+  "name": "idp-docs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "devDependencies": {
+    "mermaid": "^11.10.1",
+    "vitepress": "^1.6.4"
+  },
+  "packageManager": "pnpm@10.33.0"
+}

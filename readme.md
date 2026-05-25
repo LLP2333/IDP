@@ -71,6 +71,22 @@ pnpm dev
 - Swagger UI: <http://localhost:8080/swagger-ui.html>
 - OpenAPI JSON: <http://localhost:8080/v3/api-docs>
 
+### 4. 查看技术文档站点
+
+项目 `docs/` 下的 Markdown 文档已接入 VitePress，可通过静态站点方式阅读：
+
+```bash
+pnpm install
+pnpm docs:dev
+```
+
+浏览器访问 <http://localhost:5173>。构建静态产物：
+
+```bash
+pnpm docs:build
+pnpm docs:preview
+```
+
 ---
 
 ## 业务模块
