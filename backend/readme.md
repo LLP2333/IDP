@@ -61,10 +61,24 @@ com.qvqw.idp
 │   ├── LogController              # /system/log 登录日志 / 操作日志查询与导出
 │   ├── OnlineUserService, LogService, OnlineSession, OperationLog
 │   └── internal/MonitorEventListener, OnlineUserServiceImpl, LogServiceImpl
-└── notice/                        # 通知公告（草稿 / 立即发布 / 定时发布）
-    ├── NoticeController           # /system/notice/* CRUD + popup + read + dashboard
-    ├── NoticeService, Notice, NoticeLog, NoticeScope/NoticeMethod/NoticeStatus
-    └── internal/NoticeServiceImpl, NoticeScheduler, NoticeRepository, NoticeLogRepository
+├── notice/                        # 通知公告（草稿 / 立即发布 / 定时发布）
+│   ├── NoticeController           # /system/notice/* CRUD + popup + read + dashboard
+│   ├── NoticeService, Notice, NoticeLog, NoticeScope/NoticeMethod/NoticeStatus
+│   └── internal/NoticeServiceImpl, NoticeScheduler, NoticeRepository, NoticeLogRepository
+├── storage/                       # 存储引擎（本地 + S3）
+│   ├── StorageController          # /system/storage/* CRUD + status + setDefault
+│   ├── StorageService, StorageHandler, StorageHandlerFactory, Storage, StorageReferenceChecker
+│   └── internal/StorageRepository, StorageServiceImpl, StorageSecretCipher (AES/GCM),
+│       LocalStorageHandler, S3StorageHandler, StorageHandlerFactoryImpl, StorageSeeder,
+│       LocalStorageResourceConfig
+└── file/                          # 文件管理（依赖 storage）
+    ├── FileController             # /system/file/* 上传 / 分页 / 统计 / 重命名 / 秒传校验 / 创建文件夹
+    ├── FileRecycleController      # /system/file/recycle/* 回收站
+    ├── MultipartUploadController  # /system/multipart-upload/* 分片上传
+    ├── FileService, FileRecycleService, MultipartUploadService, FileItem, FileTypeEnum
+    └── internal/FileRepository, FileServiceImpl, FileRecycleServiceImpl,
+        MultipartUploadServiceImpl, MultipartUploadStateCache (Redis),
+        ThumbnailGenerator, FileNameGenerator, FileStorageReferenceChecker
 ```
 
 模块依赖：
@@ -89,6 +103,9 @@ flowchart LR
   notice --> menu
   monitor --> auth
   dict --> common
+  storage --> common
+  file --> storage
+  file --> common
 ```
 
 要点：
@@ -117,6 +134,8 @@ flowchart LR
 | `idp_sys_message_log` | 消息已读日志 | `message_id`, `user_id`（联合主键）, `read_time` |
 | `idp_mon_online_session` | 在线用户会话 | `token`, `jti`, `user_id`, `username`, `nickname`, `ip`, `browser`, `os`, `login_time`, `last_active_time` |
 | `idp_mon_log` | 登录 / 操作日志 | `trace_id`, `description`, `module`, `time_taken`, `ip`, `status`, `create_user_string`, `create_time`, `request_*`, `response_*` |
+| `idp_sys_storage` | 存储引擎 | `name`, `code unique`, `type (1=本地/2=S3)`, `access_key`, `secret_key (AES/GCM)`, `endpoint`, `bucket_name`, `domain`, `recycle_bin_enabled`, `recycle_bin_path`, `is_default`, `sort`, `status` |
+| `idp_sys_file` | 文件 / 文件夹 | `name`, `original_name`, `size`, `parent_path`, `path`, `extension`, `content_type`, `type (0=DIR/1=UNKNOWN/2=IMAGE/3=DOC/4=VIDEO/5=AUDIO)`, `sha256`, `metadata`, `thumbnail_name`, `storage_id`, `deleted`, `deleted_by`, `deleted_at` |
 
 启动时由 Seeder 幂等地创建默认数据：
 - `RoleSeeder`（@Order(10)）：角色 `admin`、`user`
@@ -125,6 +144,7 @@ flowchart LR
 - `RoleMenuSeeder`（@Order(17)）：把全部系统内置菜单绑定到 `admin` 角色
 - `AdminSeeder`（@Order(20)）：默认账号 `admin / 123456`（首次启动后请尽快通过接口修改密码）
 - `OptionSeeder`（@Order(30)）：15 条 SITE / PASSWORD / LOGIN 默认配置
+- `StorageSeeder`（@Order(35)）：默认 `code=local` 本地存储，启用回收站，根目录 `${idp.file.local.base-path}`
 
 > **Breaking change（v2 改造）**：旧表 `idp_sys_permission` / `idp_sys_role_permission` 已下线，由 `idp_sys_menu` / `idp_sys_role_menu` 取代；字段结构变化无法通过 `ddl-auto=update` 平滑迁移，建议 `drop database idp;` 重建后让 Seeder 灌入；自定义角色的菜单绑定需要重新分配。
 
@@ -182,8 +202,23 @@ flowchart LR
 | GET | `/system/log` | 登录日志 / 操作日志分页 |
 | GET | `/system/log/{id}` | 系统日志详情 |
 | GET | `/system/log/export/login`、`/system/log/export/operation` | 导出登录日志 / 操作日志 CSV |
+| GET | `/system/storage/list` | 存储列表（按类型 / 关键字过滤） |
+| GET | `/system/storage/{id}` | 存储详情（SecretKey 脱敏） |
+| POST / PUT / DELETE | `/system/storage` 系列 | 新增 / 修改 / 批量删除 |
+| PUT | `/system/storage/{id}/status` | 切换启用 / 禁用 |
+| PUT | `/system/storage/{id}/default` | 设为默认存储 |
+| POST | `/system/file` | 上传文件（默认 100MB） |
+| GET | `/system/file` | 文件分页（类型 / 父目录过滤） |
+| PUT | `/system/file/{id}` | 重命名 |
+| DELETE | `/system/file` | 批量删除（根据存储 recycleBinEnabled 走回收站 / 物理删除） |
+| GET | `/system/file/statistics` | 资源统计 |
+| GET | `/system/file/check` | 按 SHA256 校验秒传 |
+| POST | `/system/file/dir` | 创建文件夹（自动建中间目录） |
+| GET | `/system/file/{id}/size` | 计算文件夹大小 |
+| GET / PUT / DELETE | `/system/file/recycle` 系列 | 回收站列表 / 还原 / 物理删除 / 清空 |
+| POST / PUT / DELETE | `/system/multipart-upload` 系列 | 分片上传 init / part / complete / cancel |
 
-详细设计参见 [`../docs/auth.md`](../docs/auth.md)、[`../docs/user-role.md`](../docs/user-role.md)、[`../docs/system-config.md`](../docs/system-config.md)、[`../docs/menu.md`](../docs/menu.md)、[`../docs/dict.md`](../docs/dict.md)、[`../docs/notice.md`](../docs/notice.md)、[`../docs/message.md`](../docs/message.md) 与 [`../docs/monitor.md`](../docs/monitor.md)。
+详细设计参见 [`../docs/auth.md`](../docs/auth.md)、[`../docs/user-role.md`](../docs/user-role.md)、[`../docs/system-config.md`](../docs/system-config.md)、[`../docs/menu.md`](../docs/menu.md)、[`../docs/dict.md`](../docs/dict.md)、[`../docs/notice.md`](../docs/notice.md)、[`../docs/message.md`](../docs/message.md)、[`../docs/file-storage.md`](../docs/file-storage.md) 与 [`../docs/monitor.md`](../docs/monitor.md)。
 
 ## OpenAPI / Swagger UI
 
@@ -218,9 +253,13 @@ spring.data.redis.host=localhost
 spring.data.redis.port=6379
 idp.auth.jwt.secret=${IDP_JWT_SECRET:idp-default-jwt-secret-key-please-override-in-production-environment}
 idp.auth.jwt.expires=3600
+spring.servlet.multipart.max-file-size=100MB
+spring.servlet.multipart.max-request-size=100MB
+idp.file.local.base-path=${user.home}/.idp/files
+idp.storage.secret-key-cipher=${IDP_STORAGE_CIPHER:idp-default-storage-cipher-please-override}
 ```
 
-> 生产部署务必通过 `IDP_JWT_SECRET` 环境变量覆盖默认 JWT 密钥。
+> 生产部署务必通过环境变量覆盖默认值：`IDP_JWT_SECRET` 与 `IDP_STORAGE_CIPHER`（用于加密落库 S3 Secret Key）。
 
 测试环境通过 `application-test.properties` 切到 H2 + 弱化 Redis（在集成测试中以 `@MockitoBean StringRedisTemplate` 替代）。
 

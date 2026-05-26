@@ -552,3 +552,173 @@ export interface LogPageQuery {
   page?: number;
   size?: number;
 }
+
+// ============== storage ==============
+
+/** 存储类型：1=本地，2=S3 协议（MinIO/AWS S3/OSS/COS）。 */
+export type StorageType = 1 | 2;
+
+/** 单个存储引擎信息。 */
+export interface StorageResp {
+  id: number;
+  name: string;
+  code: string;
+  type: StorageType;
+  accessKey: string | null;
+  /** 密文永远脱敏为 '******'。 */
+  secretKey: string | null;
+  endpoint: string | null;
+  bucketName: string | null;
+  domain: string | null;
+  recycleBinEnabled: boolean;
+  recycleBinPath: string | null;
+  description: string | null;
+  isDefault: boolean;
+  sort: number;
+  /** 1=启用，2=禁用。 */
+  status: number;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+/** 存储查询条件。 */
+export interface StorageQuery {
+  type?: StorageType;
+  keyword?: string;
+}
+
+/** 存储新增请求。 */
+export interface StorageCreateReq {
+  name: string;
+  code: string;
+  type: StorageType;
+  accessKey?: string;
+  secretKey?: string;
+  endpoint?: string;
+  bucketName: string;
+  domain?: string;
+  recycleBinEnabled: boolean;
+  recycleBinPath?: string;
+  description?: string;
+  sort: number;
+  status: number;
+}
+
+/** 存储修改请求。 */
+export interface StorageUpdateReq {
+  name: string;
+  accessKey?: string;
+  /** 留空表示不修改原值。 */
+  secretKey?: string;
+  endpoint?: string;
+  bucketName: string;
+  domain?: string;
+  description?: string;
+  sort: number;
+  status: number;
+}
+
+/** 切换存储状态请求。 */
+export interface StorageStatusUpdateReq {
+  status: number;
+}
+
+// ============== file ==============
+
+/** 文件类型：0=目录,1=其他,2=图片,3=文档,4=视频,5=音频。 */
+export type FileType = 0 | 1 | 2 | 3 | 4 | 5;
+
+/** 文件 / 文件夹信息。 */
+export interface FileResp {
+  id: number;
+  name: string;
+  originalName: string;
+  size: number;
+  url: string | null;
+  thumbnailUrl: string | null;
+  parentPath: string;
+  path: string;
+  extension: string | null;
+  contentType: string | null;
+  type: FileType;
+  sha256: string | null;
+  metadata: string | null;
+  storageId: number;
+  storageName: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  deletedAt?: string | null;
+}
+
+/** 文件分页查询条件。 */
+export interface FilePageQuery {
+  originalName?: string;
+  parentPath?: string;
+  type?: FileType;
+  page?: number;
+  size?: number;
+}
+
+/** 文件统计明细项。 */
+export interface FileStatisticsDetail {
+  type: FileType;
+  name: string;
+  size: number;
+  number: number;
+}
+
+/** 文件统计响应。 */
+export interface FileStatisticsResp {
+  size: number;
+  number: number;
+  data: FileStatisticsDetail[];
+}
+
+/** 文件上传响应。 */
+export interface FileUploadResp {
+  id: number;
+  url: string;
+  thumbnailUrl: string | null;
+  metadata: string | null;
+}
+
+/** 文件夹大小响应。 */
+export interface FileDirCalcSizeResp {
+  size: number;
+}
+
+/** 文件重命名请求。 */
+export interface FileUpdateReq {
+  originalName: string;
+}
+
+/** 创建文件夹请求。 */
+export interface FileCreateDirReq {
+  parentPath: string;
+  originalName: string;
+}
+
+// ============== multipart-upload ==============
+
+/** 分片上传初始化请求。 */
+export interface MultipartUploadInitReq {
+  fileName: string;
+  fileSize: number;
+  chunkSize: number;
+  sha256: string;
+  parentPath?: string;
+}
+
+/** 分片上传初始化响应。 */
+export interface MultipartUploadInitResp {
+  /** 命中秒传时为 null；否则非空。 */
+  uploadId: string | null;
+  /** 命中秒传时返回已有文件信息，否则 null。 */
+  existing: FileResp | null;
+}
+
+/** 单分片上传响应。 */
+export interface MultipartUploadPartResp {
+  partNumber: number;
+  etag: string;
+}

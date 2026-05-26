@@ -14,6 +14,7 @@ import {
   request,
   setTokenProvider,
   setUnauthorizedHandler,
+  upload,
 } from "./http";
 
 const ORIGINAL_ENV = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -141,5 +142,74 @@ describe("http.download", () => {
     expect(headers.get("Authorization")).toBe("Bearer tok-download");
     expect(clickMock).toHaveBeenCalledOnce();
     expect(revokeObjectURLMock).toHaveBeenCalledWith("blob:download");
+  });
+});
+
+describe("http.upload", () => {
+  /** 简单的 XHR mock，捕获 open/send/headers 调用，模拟 onload 回调。 */
+  function mockXhr(response: { status: number; body?: unknown; bodyText?: string }) {
+    const setRequestHeader = vi.fn();
+    const send = vi.fn();
+    const upload = { onprogress: null as ((ev: ProgressEvent) => void) | null };
+    let onload: (() => void) | null = null;
+    const xhr = {
+      upload,
+      onload: null as (() => void) | null,
+      onerror: null as (() => void) | null,
+      ontimeout: null as (() => void) | null,
+      onabort: null as (() => void) | null,
+      responseType: "text",
+      status: response.status,
+      responseText: response.bodyText ?? JSON.stringify(response.body ?? {}),
+      open: vi.fn(),
+      send,
+      setRequestHeader,
+      abort: vi.fn(),
+    } as unknown as XMLHttpRequest & {
+      upload: { onprogress: ((ev: ProgressEvent) => void) | null };
+      onload: (() => void) | null;
+    };
+    Object.defineProperty(xhr, "onload", {
+      get() { return onload; },
+      set(v: (() => void) | null) { onload = v; },
+    });
+    send.mockImplementation(() => {
+      // 异步触发 onload
+      void Promise.resolve().then(() => {
+        upload.onprogress?.({ lengthComputable: true, loaded: 50, total: 100 } as ProgressEvent);
+        upload.onprogress?.({ lengthComputable: true, loaded: 100, total: 100 } as ProgressEvent);
+        onload?.();
+      });
+    });
+    // @ts-expect-error 测试场景下注入
+    global.XMLHttpRequest = vi.fn().mockImplementation(() => xhr);
+    return { xhr, setRequestHeader, send };
+  }
+
+  it("上传时注入 Authorization、回调进度并解析 R<T>", async () => {
+    setTokenProvider(() => "tok-up");
+    const { setRequestHeader } = mockXhr({ status: 200, body: { code: 0, msg: "ok", data: { id: 1 } } });
+    const fd = new FormData();
+    const onProgress = vi.fn();
+    const data = await upload<{ id: number }>("/upload", fd, { onProgress });
+    expect(data).toEqual({ id: 1 });
+    expect(setRequestHeader).toHaveBeenCalledWith("Authorization", "Bearer tok-up");
+    expect(onProgress).toHaveBeenCalledWith(50);
+    expect(onProgress).toHaveBeenCalledWith(100);
+  });
+
+  it("业务码非 0 抛出 HttpError", async () => {
+    mockXhr({ status: 200, body: { code: 500, msg: "禁止上传", data: null } });
+    const fd = new FormData();
+    await expect(upload("/upload", fd)).rejects.toMatchObject({ code: 500, message: "禁止上传" });
+  });
+
+  it("401 时调用 unauthorized 回调", async () => {
+    const handler = vi.fn();
+    setUnauthorizedHandler(handler);
+    mockXhr({ status: 401, body: { code: 401, msg: "unauthenticated", data: null } });
+    const fd = new FormData();
+    await expect(upload("/upload", fd)).rejects.toBeInstanceOf(HttpError);
+    expect(handler).toHaveBeenCalledOnce();
   });
 });

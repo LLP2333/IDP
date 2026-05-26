@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { LoginConfigForm } from "~/components/system/login-config-form";
 import { SecurityConfigForm } from "~/components/system/security-config-form";
 import { SiteConfigForm } from "~/components/system/site-config-form";
+import { StorageConfigTab } from "~/components/system/storage/storage-config-tab";
 import { Tabs, type TabItem } from "~/components/ui/tabs";
 import { usePermission } from "~/lib/hooks/use-permission";
 import { SITE_CONFIG_QUERY_KEY } from "~/lib/hooks/use-site-config";
@@ -79,6 +80,13 @@ export default function SystemConfigPage() {
       ),
     });
   }
+  if (hasPermission("system:storage:list")) {
+    tabs.push({
+      key: "STORAGE",
+      label: "存储配置",
+      content: <StorageConfigTab />,
+    });
+  }
   const [active, setActive] = useState<string>(tabs[0]?.key ?? "SITE");
 
   if (isLoading) return <div className="text-sm text-zinc-500">加载中…</div>;
@@ -91,7 +99,7 @@ export default function SystemConfigPage() {
     <div className="flex flex-col gap-4">
       <header>
         <h2 className="text-lg font-bold text-zinc-900">系统配置</h2>
-        <p className="text-xs text-zinc-500">维护网站基础信息、密码策略与登录配置。</p>
+        <p className="text-xs text-zinc-500">维护网站基础信息、密码策略、登录配置与文件存储。</p>
       </header>
       <Tabs value={active} onChange={setActive} items={tabs} />
     </div>

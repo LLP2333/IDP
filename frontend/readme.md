@@ -37,8 +37,9 @@ frontend/
 │   │   │       ├── user/page.tsx         # 用户管理
 │   │   │       ├── role/page.tsx         # 角色管理 + 分配菜单
 │   │   │       ├── menu/page.tsx         # 菜单管理（树形表格 + type 联动弹窗）
-│   │   │       ├── config/page.tsx       # 系统配置（SITE/PASSWORD/LOGIN Tab）
+│   │   │       ├── config/page.tsx       # 系统配置（SITE/PASSWORD/LOGIN/STORAGE Tab）
 │   │   │       ├── dict/page.tsx         # 字典管理（字典 + 明细）
+│   │   │       ├── file/page.tsx         # 文件管理（FileAside + FileMain）
 │   │   │       └── notice/               # 通知公告
 │   │   │           ├── page.tsx          # 列表 + 搜索 + 删除
 │   │   │           ├── add/page.tsx      # 新增 / 编辑（query.type=update）
@@ -47,16 +48,18 @@ frontend/
 │   │   └── page.tsx                      # 入口：根据登录态跳 /login 或 /admin
 │   ├── components/
 │   │   ├── providers/query-provider.tsx
-│   │   ├── ui/                           # 基础组件（Button/Input/Modal/Tabs/Switch/UploadImage 等）
+│   │   ├── ui/                           # 基础组件（Button/Input/Modal/Tabs/Switch/UploadImage/Breadcrumb/Dropdown/Pagination/ContextMenu/Progress/Empty 等）
 │   │   ├── system/                       # 业务表单（user/role/menu-tree/notice/dict 等）
 │   │   │   ├── dict-badge.tsx            # 字典明细 → 带颜色的 Badge
 │   │   │   ├── notice-detail-drawer.tsx  # 通知公告右侧详情抽屉
 │   │   │   ├── notice-popup.tsx          # 登录后弹窗未读公告
 │   │   │   ├── notification-bell.tsx     # 顶栏未读数 + 最近消息下拉
-│   │   │   └── user-multi-select.tsx     # 多选用户（指定通知用户场景）
+│   │   │   ├── user-multi-select.tsx     # 多选用户（指定通知用户场景）
+│   │   │   ├── file/                     # 文件管理：FileAside / FileMain / FileGrid / FileList / 各 modal / 预览 / multipart-uploader
+│   │   │   └── storage/                  # 存储配置：StorageConfigTab / StorageCard / StorageAddCard / StorageFormModal
 │   │   └── permission-guard.tsx          # <PermissionGuard codes=[...]>
 │   ├── lib/
-│   │   ├── api/                          # http 封装 + auth/user/role/option/menu/notice/dict/message API + 类型
+│   │   ├── api/                          # http 封装 + auth/user/role/option/menu/notice/dict/message/file/storage/multipart-upload API + 类型
 │   │   ├── hooks/
 │   │   │   ├── use-permission.ts         # 权限判断 Hook（admin 直通）
 │   │   │   └── use-dict.ts               # 按 code 拉字典 + getLabel/getColor 工具
@@ -107,6 +110,11 @@ API 客户端文件 → 后端接口对应：
 | `lib/api/notice.ts` | `GET/POST/PUT/DELETE /system/notice` + `/popup`、`/{id}/read`、`/dashboard` |
 | `lib/api/message.ts` | `GET /system/message` 分页、`/unread-count`、`POST /system/message/{id}/read` 与 `/read-all` |
 | `lib/api/monitor.ts` | `GET/DELETE /monitor/online`、`GET /system/log`、`GET /system/log/{id}` 与日志导出 |
+| `lib/api/file.ts` | `GET/POST/PUT/DELETE /system/file` 系列 + 回收站 `/system/file/recycle/*` |
+| `lib/api/storage.ts` | `GET/POST/PUT/DELETE /system/storage` 系列 + `/status` + `/default` |
+| `lib/api/multipart-upload.ts` | 分片上传 init / part / complete / cancel |
+
+`http.ts` 额外提供 `http.upload<T>(path, formData, { onProgress })`，使用 `XMLHttpRequest` 以支持上传进度回调，普通文件 / 分片上传均通过它发起。
 
 ## 常用脚本
 
@@ -180,6 +188,33 @@ API 客户端文件 → 后端接口对应：
 ## 默认登录账号
 
 后端会自动初始化默认管理员账号 `admin / 123456`，登录后请尽快通过用户管理页重置密码。
+
+## 文件管理与存储配置
+
+新增 `/admin/system/file` 与系统配置页 `STORAGE` Tab，覆盖企业后台的文件管理需求：
+
+| 入口 | 说明 |
+| --- | --- |
+| `/admin/system/file` | 双列布局：左 `FileAside`（分类切换 + 资源统计），右 `FileMain`（面包屑 / 操作栏 / grid·list 视图 / 分页 / 右键菜单 / 多选 / 批量删除 / 回收站） |
+| `/admin/system/config?tab=STORAGE` | 本地 / 对象存储分组卡片网格，支持新增 / 编辑 / 启用 / 禁用 / 设为默认 / 删除 |
+
+关键能力：
+
+- **普通上传 + 分片上传**：分片上传组件 `multipart-uploader-core.ts` 用 Web Crypto 计算 SHA256，按 5MB 切片、并发 3 个分片上传；已成功的分片号写入 `sessionStorage`，断点续传同一文件时跳过；触发 `AbortSignal` 自动调用后端 cancel。
+- **秒传**：分片上传 init 命中已有 `SHA256` 时直接返回 `existing` 文件信息，无需再上传任何分片。
+- **预览**：
+  - `image-preview.tsx`：原生 lightbox，支持缩放 / 旋转 / 重置 / 列表轮播 / 键盘 ←→Esc；
+  - `video-preview.tsx`、`audio-preview.tsx`：原生 `<video>` / `<audio>`；
+  - `office-preview.tsx`：`pdf` 走 `<iframe>`，`docx` 用 [`docx-preview`](https://www.npmjs.com/package/docx-preview)，`xlsx` 用 [`xlsx`](https://www.npmjs.com/package/xlsx)（SheetJS）渲染 HTML table，`ppt/pptx` 等暂不支持时兜底 “下载 + 新标签页打开”；
+  - `getOfficePreviewKind(extension)` 暴露给上层做扩展名分流；图片预览同时把当前页内所有图片传给 `ImagePreview` 实现轮播。
+- **回收站**：`FileRecycleModal` 提供分页 / 还原 / 物理删除 / 清空，所有写操作都会同步刷新文件列表与统计。
+- **存储表单**：`storage-form-modal.tsx` 在 LOCAL / S3 之间动态切换字段；编辑态下编码字段禁用，`SecretKey` 留空表示不修改。
+- **交互约定**：
+  - 整张卡片 / 整行 **单击 = 打开**（文件夹进入下一级 / 文件触发对应预览）；
+  - 卡片左上角勾选框（hover 或选中时显示）/ 列表行复选框 = **仅切换选中**，不冒泡；
+  - 右键菜单：`详情` / `重命名`（`system:file:update`）/ `下载`（仅文件，浏览器 `<a download>` 触发）/ `删除`（`system:file:delete`，红色高亮）。
+
+详细架构与流程参见 [`../docs/file-storage.md`](../docs/file-storage.md)。
 
 ## 通知公告 / 字典 / 消息中心
 

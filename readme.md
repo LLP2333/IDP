@@ -25,8 +25,9 @@ idp/
 | --- | --- |
 | 后端 | Java 21 + Spring Boot 4 + Spring Modulith + Spring Security + JWT |
 | 前端 | TypeScript + Next.js 15 (App Router) + React 19 + TanStack Query + Zustand + React Hook Form + Tailwind CSS v4 |
-| 数据库 | PostgreSQL（用户/角色/关联） |
-| 缓存 | Redis（JWT Token Store） |
+| 数据库 | PostgreSQL（用户/角色/文件/存储等） |
+| 缓存 | Redis（JWT Token Store、分片上传状态） |
+| 对象存储 | MinIO（S3 协议，本地开发可选）/ 任意 S3 兼容服务 |
 | 认证 | 后端发放 JWT，前端通过 fetch 直连 REST API |
 | 单元测试 | JUnit（后端） / Vitest + Testing Library（前端） |
 
@@ -40,7 +41,7 @@ idp/
 docker compose up -d
 ```
 
-会拉起 PostgreSQL（5432）与 Redis（6379）。
+会拉起 PostgreSQL（5432）、Redis（6379）与 MinIO（API `9000`、控制台 `9001`，默认账号 `idp / idp-minio-password`）。如不需要对象存储，可使用 `docker compose up -d postgres redis` 只启动核心依赖。
 
 ### 2. 启动后端
 
@@ -97,7 +98,9 @@ pnpm docs:preview
 | 用户管理 | 用户 CRUD、分配角色、重置密码、自助改密 | [`docs/user-role.md`](docs/user-role.md) |
 | 角色管理 | 角色 CRUD、按 code 唯一约束、分配菜单 | [`docs/user-role.md`](docs/user-role.md) |
 | 菜单管理 | 目录 / 菜单 / 按钮三层结构、`@HasPermission` AOP、前端动态侧边栏、PermissionGuard | [`docs/menu.md`](docs/menu.md) |
-| 系统配置 | 网站配置 / 安全（密码策略）/ 登录（验证码） | [`docs/system-config.md`](docs/system-config.md) |
+| 系统配置 | 网站配置 / 安全（密码策略）/ 登录（验证码）/ 存储配置 | [`docs/system-config.md`](docs/system-config.md) |
+| 文件管理 | 普通 / 分片上传、SHA256 秒传、回收站、图片视频音频预览 | [`docs/file-storage.md`](docs/file-storage.md) |
+| 存储配置 | 本地 + S3（MinIO/OSS/COS 兼容）双引擎，AES/GCM 加密落库 | [`docs/file-storage.md`](docs/file-storage.md) |
 | 系统监控 | 在线用户、强退、登录日志、操作日志、日志导出 | [`docs/monitor.md`](docs/monitor.md) |
 
 ---

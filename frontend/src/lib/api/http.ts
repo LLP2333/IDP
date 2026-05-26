@@ -249,6 +249,109 @@ export async function download(path: string, options: DownloadOptions = {}): Pro
 }
 
 /**
+ * 上传请求选项。
+ */
+export interface UploadOptions {
+  /** HTTP 方法，默认 POST，分片接口可传 PUT */
+  method?: "POST" | "PUT";
+  /** Query 参数会被序列化拼到 URL 后 */
+  query?: Record<string, unknown>;
+  /** 上传进度回调（0-100）；不传则不监听 */
+  onProgress?: (percent: number) => void;
+  /** 自定义请求头 */
+  headers?: Record<string, string>;
+  /** AbortController 信号 */
+  signal?: AbortSignal;
+  /** 是否跳过 401 自动跳转登录 */
+  skipUnauthorizedHandler?: boolean;
+}
+
+/**
+ * 文件上传（基于 XMLHttpRequest，支持上传进度回调）。
+ *
+ * 由于浏览器 fetch 当前还不能可靠地监听 multipart 上传进度，统一使用 XHR；
+ * 鉴权、401 处理、`R<T>` 解析与 {@link request} 保持一致。
+ *
+ * @template T 期望的返回数据类型
+ * @param path     业务路径
+ * @param formData FormData 实体（包含文件字段）
+ * @param options  上传选项
+ * @returns 后端 `data` 字段
+ */
+export function upload<T>(path: string, formData: FormData, options: UploadOptions = {}): Promise<T> {
+  const { method = "POST", query, onProgress, headers, signal, skipUnauthorizedHandler } = options;
+  const url = buildUrl(getBaseUrl(), path, query);
+
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
+    xhr.responseType = "text";
+
+    if (headers) {
+      for (const [k, v] of Object.entries(headers)) {
+        xhr.setRequestHeader(k, v);
+      }
+    }
+    const token = getToken();
+    if (token) {
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    }
+    xhr.setRequestHeader("Accept", "application/json");
+
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          onProgress(percent);
+        }
+      };
+    }
+
+    xhr.onerror = () => reject(new HttpError(0, "网络错误", 0));
+    xhr.ontimeout = () => reject(new HttpError(0, "请求超时", 0));
+    xhr.onabort = () => reject(new HttpError(0, "已取消上传", 0));
+
+    xhr.onload = () => {
+      if (xhr.status === 401) {
+        if (!skipUnauthorizedHandler && onUnauthorized) onUnauthorized();
+        reject(new HttpError(401, "未登录或登录已过期", 401));
+        return;
+      }
+      let json: ApiResponse<T> | undefined;
+      const text = xhr.responseText;
+      try {
+        if (text) {
+          json = JSON.parse(text) as ApiResponse<T>;
+        }
+      } catch {
+        // 非 JSON 响应
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && json) {
+        if (json.code === 0) {
+          resolve(json.data);
+        } else {
+          reject(new HttpError(json.code, json.msg, xhr.status));
+        }
+      } else if (json) {
+        reject(new HttpError(json.code ?? xhr.status, json.msg ?? `上传失败: ${xhr.status}`, xhr.status));
+      } else {
+        reject(new HttpError(xhr.status, `上传失败: ${xhr.status}`, xhr.status));
+      }
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        xhr.abort();
+      } else {
+        signal.addEventListener("abort", () => xhr.abort());
+      }
+    }
+
+    xhr.send(formData);
+  });
+}
+
+/**
  * 各种动词的便捷封装。
  *
  * 示例：
@@ -275,4 +378,6 @@ export const http = {
     request<T>(path, { ...options, method: "DELETE", body }),
   /** 文件下载请求。 */
   download,
+  /** 文件上传请求（基于 XHR，支持 onProgress）。 */
+  upload,
 };

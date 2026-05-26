@@ -30,6 +30,7 @@ export default defineConfig({
           { text: "字典模块", link: "/dict" },
           { text: "通知公告", link: "/notice" },
           { text: "站内消息", link: "/message" },
+          { text: "文件管理与存储", link: "/file-storage" },
           { text: "系统监控", link: "/monitor" }
         ]
       }
