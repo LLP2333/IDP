@@ -215,7 +215,7 @@ export default function RolePage() {
   const data = listQuery.data;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold">角色管理</h2>
@@ -289,6 +289,9 @@ export default function RolePage() {
         data={data?.list ?? []}
         rowKey={(row) => row.id}
         loading={listQuery.isLoading}
+        stickyHeader
+        containerClassName="min-h-0 flex-1 overflow-auto"
+        tableClassName="min-w-[900px]"
       />
 
       {data ? (

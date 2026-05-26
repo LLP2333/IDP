@@ -15,7 +15,7 @@ import { FileMain } from "~/components/system/file/file-main";
 export default function FilePage() {
   const [type, setType] = useState<number | undefined>(undefined);
   return (
-    <div className="-m-6 flex h-[calc(100vh-3.5rem)] bg-zinc-50">
+    <div className="-m-6 flex h-[calc(100%+3rem)] overflow-hidden bg-zinc-50">
       <FileAside current={type} onChange={setType} />
       <FileMain type={type} />
     </div>

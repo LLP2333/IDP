@@ -26,7 +26,10 @@ export interface TabsProps {
   items: TabItem[];
   /** 排列方向：horizontal=顶部，vertical=左侧。 */
   orientation?: "horizontal" | "vertical";
+  /** 根容器额外样式。 */
   className?: string;
+  /** 内容面板额外样式。 */
+  panelClassName?: string;
 }
 
 /**
@@ -40,6 +43,7 @@ export function Tabs({
   items,
   orientation = "horizontal",
   className,
+  panelClassName,
 }: TabsProps) {
   const active = items.find((it) => it.key === value);
   if (orientation === "vertical") {
@@ -67,7 +71,7 @@ export function Tabs({
             </button>
           ))}
         </div>
-        <div className="flex-1" role="tabpanel">
+        <div className={cn("flex-1", panelClassName)} role="tabpanel">
           {active?.content}
         </div>
       </div>
@@ -98,7 +102,7 @@ export function Tabs({
           </button>
         ))}
       </div>
-      <div className="pt-4" role="tabpanel">
+      <div className={cn("pt-4", panelClassName)} role="tabpanel">
         {active?.content}
       </div>
     </div>

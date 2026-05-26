@@ -39,7 +39,6 @@ export function AudioPreview({ src, name, contentType, onClose }: AudioPreviewPr
           您的浏览器不支持 audio 标签。
         </audio>
       ) : null}
-      {/* TODO: 后续接入 onlyoffice/kkfile 时增加 Office 预览 */}
     </Modal>
   );
 }

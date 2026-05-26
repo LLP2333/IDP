@@ -33,6 +33,12 @@ interface DataTableProps<T> {
   loading?: boolean;
   /** 空数据展示内容，默认 “暂无数据”。 */
   empty?: ReactNode;
+  /** 表格外层容器额外样式。 */
+  containerClassName?: string;
+  /** table 元素额外样式。 */
+  tableClassName?: string;
+  /** 是否让表头在表格容器内部滚动时吸顶。 */
+  stickyHeader?: boolean;
 }
 
 /**
@@ -48,11 +54,24 @@ export function DataTable<T>({
   rowKey,
   loading,
   empty = "暂无数据",
+  containerClassName,
+  tableClassName,
+  stickyHeader = false,
 }: DataTableProps<T>) {
   return (
-    <div className="overflow-hidden rounded-md border border-zinc-200 bg-white">
-      <table className="w-full text-sm">
-        <thead className="bg-zinc-50 text-zinc-600">
+    <div
+      className={cn(
+        "overflow-hidden rounded-md border border-zinc-200 bg-white",
+        containerClassName,
+      )}
+    >
+      <table className={cn("w-full text-sm", tableClassName)}>
+        <thead
+          className={cn(
+            "bg-zinc-50 text-zinc-600",
+            stickyHeader && "sticky top-0 z-10",
+          )}
+        >
           <tr>
             {columns.map((col) => (
               <th

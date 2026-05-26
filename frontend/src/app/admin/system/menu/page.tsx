@@ -306,7 +306,7 @@ export default function MenuPage() {
     const Icon = resolveIcon(node.icon);
     return (
       <Fragment key={node.id}>
-        <tr className="border-t border-zinc-100 hover:bg-zinc-50/60">
+        <tr className="group border-t border-zinc-100 hover:bg-zinc-50/60">
           <td className="px-3 py-2 align-middle">
             <div
               className="flex items-center gap-2 whitespace-nowrap"
@@ -347,17 +347,17 @@ export default function MenuPage() {
             )}
           </td>
           <td className="px-3 py-2 align-middle text-center">{node.sort}</td>
-          <td className="max-w-[200px] truncate px-3 py-2 align-middle text-xs text-zinc-500" title={node.path ?? undefined}>
-            {node.path ?? "—"}
+          <td className="px-3 py-2 align-middle text-xs text-zinc-500" title={node.path ?? undefined}>
+            <span className="block truncate whitespace-nowrap">{node.path ?? "—"}</span>
           </td>
-          <td className="max-w-[140px] truncate px-3 py-2 align-middle text-xs text-zinc-500" title={node.name ?? undefined}>
-            {node.name ?? "—"}
+          <td className="px-3 py-2 align-middle text-xs text-zinc-500" title={node.name ?? undefined}>
+            <span className="block truncate whitespace-nowrap">{node.name ?? "—"}</span>
           </td>
-          <td className="max-w-[200px] truncate px-3 py-2 align-middle text-xs text-zinc-500" title={node.component ?? undefined}>
-            {node.component ?? "—"}
+          <td className="px-3 py-2 align-middle text-xs text-zinc-500" title={node.component ?? undefined}>
+            <span className="block truncate whitespace-nowrap">{node.component ?? "—"}</span>
           </td>
-          <td className="max-w-[200px] truncate px-3 py-2 align-middle text-xs text-zinc-500" title={node.permission ?? undefined}>
-            {node.permission ?? "—"}
+          <td className="px-3 py-2 align-middle text-xs text-zinc-500" title={node.permission ?? undefined}>
+            <span className="block truncate whitespace-nowrap">{node.permission ?? "—"}</span>
           </td>
           <td className="px-3 py-2 align-middle">
             <div className="flex gap-1 text-xs text-zinc-500">
@@ -367,8 +367,8 @@ export default function MenuPage() {
               {!node.isExternal && !node.isHidden && !node.isCache ? "—" : null}
             </div>
           </td>
-          <td className="px-3 py-2 align-middle">
-            <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+          <td className="sticky right-0 z-10 bg-white px-3 py-2 align-middle shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)] group-hover:bg-zinc-50">
+            <div className="flex flex-nowrap items-center justify-start gap-1 whitespace-nowrap">
               {hasPermission("system:menu:add") && canAddChild ? (
                 <Button
                   size="sm"
@@ -426,7 +426,7 @@ export default function MenuPage() {
   const isDirectory = form.type === 1;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold">菜单管理</h2>
@@ -488,37 +488,49 @@ export default function MenuPage() {
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-md border border-zinc-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-zinc-600">
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 bg-white">
+        <table className="w-full min-w-[1610px] table-fixed text-sm">
+          <colgroup>
+            <col className="w-[240px]" />
+            <col className="w-[80px]" />
+            <col className="w-[80px]" />
+            <col className="w-[70px]" />
+            <col className="w-[160px]" />
+            <col className="w-[140px]" />
+            <col className="w-[200px]" />
+            <col className="w-[260px]" />
+            <col className="w-[120px]" />
+            <col className="w-[260px]" />
+          </colgroup>
+          <thead className="sticky top-0 z-20 bg-zinc-50 text-zinc-600">
             <tr>
               <th
-                className="px-3 py-2 text-left font-medium"
+                className="px-3 py-2 text-left font-medium whitespace-nowrap"
                 style={{ minWidth: 220 }}
               >
                 菜单标题
               </th>
-              <th className="px-3 py-2 text-left font-medium" style={{ width: 80 }}>
+              <th className="px-3 py-2 text-left font-medium whitespace-nowrap" style={{ width: 80 }}>
                 类型
               </th>
-              <th className="px-3 py-2 text-left font-medium" style={{ width: 80 }}>
+              <th className="px-3 py-2 text-left font-medium whitespace-nowrap" style={{ width: 80 }}>
                 状态
               </th>
               <th
-                className="px-3 py-2 text-center font-medium"
+                className="px-3 py-2 text-center font-medium whitespace-nowrap"
                 style={{ width: 70 }}
               >
                 排序
               </th>
-              <th className="px-3 py-2 text-left font-medium">路由地址</th>
-              <th className="px-3 py-2 text-left font-medium">组件名称</th>
-              <th className="px-3 py-2 text-left font-medium">组件路径</th>
-              <th className="px-3 py-2 text-left font-medium">权限标识</th>
-              <th className="px-3 py-2 text-left font-medium" style={{ width: 120 }}>
+              <th className="px-3 py-2 text-left font-medium whitespace-nowrap">路由地址</th>
+              <th className="px-3 py-2 text-left font-medium whitespace-nowrap">组件名称</th>
+              <th className="px-3 py-2 text-left font-medium whitespace-nowrap">组件路径</th>
+              <th className="px-3 py-2 text-left font-medium whitespace-nowrap">权限标识</th>
+              <th className="px-3 py-2 text-left font-medium whitespace-nowrap" style={{ width: 120 }}>
                 标记
               </th>
               <th
-                className="px-3 py-2 text-right font-medium"
+                className="sticky right-0 z-30 bg-zinc-50 px-3 py-2 text-left font-medium whitespace-nowrap shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]"
                 style={{ width: 260 }}
               >
                 操作

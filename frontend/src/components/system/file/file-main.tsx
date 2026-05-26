@@ -264,7 +264,7 @@ export function FileMain({ type }: FileMainProps) {
   };
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col gap-3 p-4">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden p-4">
       <Breadcrumb items={breadcrumbItems} />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -359,32 +359,34 @@ export function FileMain({ type }: FileMainProps) {
         </span>
       </div>
 
-      {listQuery.isLoading ? (
-        <p className="py-8 text-center text-sm text-zinc-400">加载中…</p>
-      ) : items.length === 0 ? (
-        <Empty
-          title="当前目录为空"
-          description="拖拽或点击 “普通上传” 开始管理你的文件"
-        />
-      ) : view === "grid" ? (
-        <FileGrid
-          items={items}
-          selectedIds={selectedIds}
-          onToggleSelect={handleToggleSelect}
-          onOpen={handleOpenItem}
-          onContextMenu={handleContextMenu}
-        />
-      ) : (
-        <FileList
-          items={items}
-          selectedIds={selectedIds}
-          onToggleSelect={handleToggleSelect}
-          onToggleAll={handleToggleAll}
-          allSelected={allSelected}
-          onOpen={handleOpenItem}
-          onContextMenu={handleContextMenu}
-        />
-      )}
+      <div className="min-h-0 flex-1 overflow-auto">
+        {listQuery.isLoading ? (
+          <p className="py-8 text-center text-sm text-zinc-400">加载中…</p>
+        ) : items.length === 0 ? (
+          <Empty
+            title="当前目录为空"
+            description="拖拽或点击 “普通上传” 开始管理你的文件"
+          />
+        ) : view === "grid" ? (
+          <FileGrid
+            items={items}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onOpen={handleOpenItem}
+            onContextMenu={handleContextMenu}
+          />
+        ) : (
+          <FileList
+            items={items}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onToggleAll={handleToggleAll}
+            allSelected={allSelected}
+            onOpen={handleOpenItem}
+            onContextMenu={handleContextMenu}
+          />
+        )}
+      </div>
 
       {data ? (
         <Pagination

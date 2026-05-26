@@ -264,7 +264,7 @@ export default function DictPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold">字典管理</h2>
@@ -284,12 +284,12 @@ export default function DictPage() {
         ) : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
-        <div className="rounded-md border border-zinc-200 bg-white">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
+        <div className="flex min-h-0 flex-col rounded-md border border-zinc-200 bg-white">
           <div className="border-b border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-600">
             字典列表
           </div>
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {dictListQuery.isLoading ? (
               <div className="px-3 py-4 text-sm text-zinc-400">加载中…</div>
             ) : (dictListQuery.data ?? []).length === 0 ? (
@@ -318,7 +318,7 @@ export default function DictPage() {
           </div>
         </div>
 
-        <div className="rounded-md border border-zinc-200 bg-white">
+        <div className="flex min-h-0 flex-col rounded-md border border-zinc-200 bg-white">
           <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2">
             <div className="text-sm font-medium text-zinc-700">
               {selectedDict ? `明细：${selectedDict.name}（${selectedDict.code}）` : "请选择左侧字典"}
@@ -364,13 +364,16 @@ export default function DictPage() {
               ) : null}
             </div>
           </div>
-          <div className="p-3">
+          <div className="flex min-h-0 flex-1 flex-col p-3">
             <DataTable<DictItemResp>
               columns={itemColumns}
               data={itemListQuery.data ?? []}
               rowKey={(row) => row.id}
               loading={!!selectedDictId && itemListQuery.isLoading}
               empty={selectedDictId ? "暂无明细" : "请选择左侧字典"}
+              stickyHeader
+              containerClassName="min-h-0 flex-1 overflow-auto"
+              tableClassName="min-w-[760px]"
             />
           </div>
         </div>

@@ -128,7 +128,7 @@ export default function OnlineUserPage() {
   const data = listQuery.data;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <div>
         <h2 className="text-xl font-semibold">在线用户</h2>
         <p className="mt-1 text-sm text-zinc-500">
@@ -173,6 +173,9 @@ export default function OnlineUserPage() {
         data={data?.list ?? []}
         rowKey={(row) => row.token}
         loading={listQuery.isLoading}
+        stickyHeader
+        containerClassName="min-h-0 flex-1 overflow-auto"
+        tableClassName="min-w-[1160px]"
       />
 
       {data ? (

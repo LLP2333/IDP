@@ -278,7 +278,7 @@ function LoginLogTable() {
   const data = listQuery.data;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <LogFilter
         actorPlaceholder="搜索登录用户"
         actorInput={actorInput}
@@ -305,6 +305,9 @@ function LoginLogTable() {
         data={data?.list ?? []}
         rowKey={(row) => row.id}
         loading={listQuery.isLoading}
+        stickyHeader
+        containerClassName="min-h-0 flex-1 overflow-auto"
+        tableClassName="min-w-[1120px]"
       />
       {data ? (
         <Pagination
@@ -542,7 +545,7 @@ function OperationLogTable() {
   const data = listQuery.data;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <LogFilter
         extraLeft={
           <Input
@@ -581,6 +584,9 @@ function OperationLogTable() {
         data={data?.list ?? []}
         rowKey={(row) => row.id}
         loading={listQuery.isLoading}
+        stickyHeader
+        containerClassName="min-h-0 flex-1 overflow-auto"
+        tableClassName="min-w-[900px]"
       />
       {data ? (
         <Pagination
@@ -600,7 +606,7 @@ export default function MonitorLogPage() {
   const [tab, setTab] = useState("login");
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <div>
         <h2 className="text-xl font-semibold">系统日志</h2>
         <p className="mt-1 text-sm text-zinc-500">
@@ -611,6 +617,8 @@ export default function MonitorLogPage() {
       <Tabs
         value={tab}
         onChange={setTab}
+        className="flex min-h-0 flex-1 flex-col"
+        panelClassName="min-h-0 flex-1"
         items={[
           {
             key: "login",
