@@ -235,7 +235,7 @@ export default function NoticeListPage() {
           搜索
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={() => {
             setTitleInput("");

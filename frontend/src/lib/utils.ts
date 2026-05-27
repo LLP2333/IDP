@@ -35,6 +35,38 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 /**
+ * 统一把后端返回的日期时间字符串格式化为 `YYYY-MM-DD HH:mm:ss`。
+ *
+ * 兼容以下输入：
+ * - ISO 带微秒（Spring 默认序列化）：`"2026-05-27T08:52:24.674107"`；
+ * - ISO 不带毫秒：`"2026-05-27T08:52:24"`；
+ * - 已经是 `"2026-05-27 08:52:24"` 这种空格分隔形式；
+ * - 仅日期：`"2026-05-27"`。
+ *
+ * 解析失败或为空时，返回 `fallback`（默认 `"—"`），避免 UI 出现 `null` / `undefined`。
+ *
+ * @param value    日期时间字符串
+ * @param fallback 空值或解析失败时的占位文案
+ * @returns 标准化后的字符串
+ */
+export function formatDateTime(
+  value: string | null | undefined,
+  fallback = "—",
+): string {
+  if (value === null || value === undefined) return fallback;
+  const trimmed = value.trim();
+  if (!trimmed) return fallback;
+  const normalized = trimmed.replace("T", " ");
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(normalized);
+  if (!match) return normalized;
+  const [, year, month, day, hour, minute, second] = match;
+  if (!hour) {
+    return `${year}-${month}-${day}`;
+  }
+  return `${year}-${month}-${day} ${hour}:${minute}:${second ?? "00"}`;
+}
+
+/**
  * 触发浏览器以 `filename` 为文件名下载指定 URL 的内容。
  *
  * <p>背景:`<a href download>` 在 **跨源** URL 上,浏览器会忽略 `download`

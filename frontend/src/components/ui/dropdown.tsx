@@ -34,20 +34,37 @@ export interface DropdownProps {
   items: DropdownItem[];
   /** 自定义对齐方向，默认 `start`（左对齐）。 */
   align?: "start" | "end";
+  /**
+   * 触发方式：
+   * - `click`（默认）：点击 trigger 切换显示；
+   * - `hover`：鼠标悬浮即展开，移出 trigger / 菜单后延迟收起（兼顾触屏点击）。
+   */
+  triggerOn?: "click" | "hover";
   /** 自定义菜单 className。 */
   menuClassName?: string;
   /** 自定义容器 className。 */
   className?: string;
 }
 
+/** hover 模式下离开 trigger 后到收起菜单的延迟（毫秒），把 trigger ↔ 菜单之间的"空隙"算作同一悬浮区域。 */
+const HOVER_CLOSE_DELAY = 150;
+
 /**
  * 通用下拉菜单。
  *
- * 通过点击 `trigger` 切换显示，监听文档点击与 `Escape` 自动关闭。
+ * 通过 `triggerOn` 选择点击或悬浮触发，监听文档点击与 `Escape` 自动关闭。
  */
-export function Dropdown({ trigger, items, align = "start", menuClassName, className }: DropdownProps) {
+export function Dropdown({
+  trigger,
+  items,
+  align = "start",
+  triggerOn = "click",
+  menuClassName,
+  className,
+}: DropdownProps) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -67,8 +84,41 @@ export function Dropdown({ trigger, items, align = "start", menuClassName, class
     };
   }, [open]);
 
+  useEffect(
+    () => () => {
+      if (hoverCloseTimer.current) clearTimeout(hoverCloseTimer.current);
+    },
+    [],
+  );
+
+  const cancelClose = () => {
+    if (hoverCloseTimer.current) {
+      clearTimeout(hoverCloseTimer.current);
+      hoverCloseTimer.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    cancelClose();
+    hoverCloseTimer.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY);
+  };
+
+  const isHover = triggerOn === "hover";
+
   return (
-    <div ref={wrapperRef} className={cn("relative inline-block", className)}>
+    <div
+      ref={wrapperRef}
+      className={cn("relative inline-block", className)}
+      onMouseEnter={
+        isHover
+          ? () => {
+              cancelClose();
+              setOpen(true);
+            }
+          : undefined
+      }
+      onMouseLeave={isHover ? scheduleClose : undefined}
+    >
       <div
         onClick={() => setOpen((p) => !p)}
         role="button"
@@ -83,7 +133,8 @@ export function Dropdown({ trigger, items, align = "start", menuClassName, class
         <div
           role="menu"
           className={cn(
-            "absolute z-50 mt-1 min-w-[10rem] rounded-md border border-zinc-200 bg-white py-1 shadow-lg",
+            // 默认按内容自适应宽度，避免菜单项右侧出现大段留白；调用方需要更宽时通过 `menuClassName` 覆盖
+            "absolute z-50 mt-1 min-w-fit rounded-md border border-zinc-200 bg-white py-1 shadow-lg",
             align === "end" ? "right-0" : "left-0",
             menuClassName,
           )}

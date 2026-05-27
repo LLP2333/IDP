@@ -22,6 +22,7 @@ import {
 } from "~/lib/api/monitor";
 import type { LogDetailResp, LogPageQuery, LogResp } from "~/lib/api/types";
 import { usePermission } from "~/lib/hooks/use-permission";
+import { formatDateTime } from "~/lib/utils";
 
 const PAGE_SIZE = 10;
 
@@ -79,9 +80,11 @@ function prettyPayload(value: string | null | undefined): string {
 }
 
 function displayDateTime(value: string): { date: string; time: string } {
-  const normalized = value.replace("T", " ");
+  // 复用统一的格式化逻辑：先归一为 "YYYY-MM-DD HH:mm:ss"，再按空格拆分双行展示
+  const normalized = formatDateTime(value, "");
+  if (!normalized) return { date: "—", time: "" };
   const [date, time] = normalized.split(" ");
-  return { date: date ?? normalized, time: (time ?? "").slice(0, 8) };
+  return { date: date ?? normalized, time: time ?? "" };
 }
 
 function fallback(value: string | null | undefined): string {
@@ -174,13 +177,13 @@ function LogFilter({
         <Search size={14} />
         搜索
       </Button>
-      <Button variant="ghost" size="sm" onClick={onReset}>
+      <Button variant="outline" size="sm" onClick={onReset}>
         <RefreshCw size={14} />
         重置
       </Button>
       {onExport ? (
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           disabled={exportPending}
           onClick={onExport}
@@ -259,7 +262,14 @@ function LoginLogTable() {
       align: "center",
       render: (_row, index) => (page - 1) * PAGE_SIZE + index + 1,
     },
-    { key: "createTime", title: "登录时间", width: "180px" },
+    {
+      key: "createTime",
+      title: "登录时间",
+      width: "180px",
+      render: (row) => (
+        <span className="whitespace-nowrap">{formatDateTime(row.createTime)}</span>
+      ),
+    },
     { key: "createUserString", title: "用户昵称", render: (row) => row.createUserString ?? "—" },
     { key: "description", title: "登录行为", render: (row) => row.description ?? "—" },
     {
@@ -336,7 +346,7 @@ function LogDetailModal({
             <Info label="日志 ID" value={detail.id} />
             <Info label="Trace ID" value={detail.traceId ?? "—"} />
             <Info label="操作人" value={detail.createUserString ?? "—"} />
-            <Info label="操作时间" value={detail.createTime} />
+            <Info label="操作时间" value={formatDateTime(detail.createTime)} />
             <Info label="操作内容" value={detail.description ?? "—"} />
             <Info label="所属模块" value={detail.module ?? "—"} />
             <Info label="操作 IP" value={detail.ip ?? "—"} />

@@ -478,7 +478,7 @@ export default function MenuPage() {
         </Button>
         <Button
           size="sm"
-          variant="ghost"
+          variant="outline"
           onClick={() => {
             setKeyword("");
             setKeywordInput("");

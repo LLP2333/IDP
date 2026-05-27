@@ -6,7 +6,7 @@ import { DictBadge } from "~/components/system/dict-badge";
 import { Badge } from "~/components/ui/badge";
 import { useDict } from "~/lib/hooks/use-dict";
 import type { NoticeDetailResp } from "~/lib/api/types";
-import { cn } from "~/lib/utils";
+import { cn, formatDateTime } from "~/lib/utils";
 
 interface NoticeDetailDrawerProps {
   /** 是否展示。 */
@@ -100,9 +100,9 @@ export function NoticeDetailDrawer({ open, onClose, data }: NoticeDetailDrawerPr
                   )
                 }
               />
-              <Row label="发布时间" value={data.publishTime ?? "—"} />
+              <Row label="发布时间" value={formatDateTime(data.publishTime)} />
               <Row label="发布人" value={data.createUserString ?? "—"} />
-              <Row label="创建时间" value={data.createdAt} />
+              <Row label="创建时间" value={formatDateTime(data.createdAt)} />
               {data.noticeScope === 2 && data.noticeUsers && data.noticeUsers.length > 0 ? (
                 <Row
                   label="通知用户"

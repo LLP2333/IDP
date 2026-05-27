@@ -289,7 +289,7 @@ export default function UserPage() {
           搜索
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={() => {
             setUsername("");

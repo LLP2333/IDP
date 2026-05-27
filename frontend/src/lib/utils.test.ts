@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { apiUrl, cn, downloadByUrl } from "./utils";
+import { apiUrl, cn, downloadByUrl, formatDateTime } from "./utils";
 
 describe("apiUrl", () => {
   it("拼接相对路径与 base", () => {
@@ -29,6 +29,43 @@ describe("cn", () => {
 
   it("过滤掉 falsy 值", () => {
     expect(cn("a", false && "b", null, undefined, "c")).toBe("a c");
+  });
+});
+
+describe("formatDateTime", () => {
+  it("把带微秒的 ISO 串截断到秒并把 T 替换为空格", () => {
+    expect(formatDateTime("2026-05-27T08:52:24.674107")).toBe("2026-05-27 08:52:24");
+  });
+
+  it("ISO 不带毫秒也能正确格式化", () => {
+    expect(formatDateTime("2026-05-27T08:52:24")).toBe("2026-05-27 08:52:24");
+  });
+
+  it("已经是空格分隔的形式按原样标准化", () => {
+    expect(formatDateTime("2026-05-27 08:52:24")).toBe("2026-05-27 08:52:24");
+  });
+
+  it("仅有分钟时秒位补 00", () => {
+    expect(formatDateTime("2026-05-27T08:52")).toBe("2026-05-27 08:52:00");
+  });
+
+  it("仅日期时只返回日期部分", () => {
+    expect(formatDateTime("2026-05-27")).toBe("2026-05-27");
+  });
+
+  it("空值返回默认占位 —", () => {
+    expect(formatDateTime(null)).toBe("—");
+    expect(formatDateTime(undefined)).toBe("—");
+    expect(formatDateTime("")).toBe("—");
+    expect(formatDateTime("   ")).toBe("—");
+  });
+
+  it("无法解析时按原样返回 trim 后字符串", () => {
+    expect(formatDateTime("not-a-date")).toBe("not-a-date");
+  });
+
+  it("支持自定义占位文案", () => {
+    expect(formatDateTime(null, "-")).toBe("-");
   });
 });
 

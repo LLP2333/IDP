@@ -1,7 +1,7 @@
 "use client";
 
 import type { FileResp } from "~/lib/api/types";
-import { cn } from "~/lib/utils";
+import { cn, formatDateTime } from "~/lib/utils";
 
 import { formatBytes } from "./file-aside-statistics";
 import { FileIcon } from "./file-icon";
@@ -111,7 +111,9 @@ export function FileList({
                 <td className="px-3 py-2 text-zinc-500">
                   {isDir ? "—" : formatBytes(item.size)}
                 </td>
-                <td className="px-3 py-2 text-zinc-500">{item.createdAt}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-zinc-500">
+                  {formatDateTime(item.createdAt)}
+                </td>
                 <td className="px-3 py-2 text-zinc-500">{item.extension ?? "—"}</td>
               </tr>
             );

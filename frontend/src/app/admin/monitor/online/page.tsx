@@ -13,6 +13,7 @@ import { kickoutOnlineUser, listOnlineUser } from "~/lib/api/monitor";
 import type { OnlineUserResp } from "~/lib/api/types";
 import { usePermission } from "~/lib/hooks/use-permission";
 import { useAuthStore } from "~/lib/store/auth-store";
+import { formatDateTime } from "~/lib/utils";
 
 const PAGE_SIZE = 10;
 
@@ -90,12 +91,21 @@ export default function OnlineUserPage() {
     { key: "address", title: "登录地点", render: (row) => row.address ?? "—" },
     { key: "browser", title: "浏览器", render: (row) => row.browser ?? "—" },
     { key: "os", title: "终端系统", render: (row) => row.os ?? "—" },
-    { key: "loginTime", title: "登录时间", width: "180px" },
+    {
+      key: "loginTime",
+      title: "登录时间",
+      width: "180px",
+      render: (row) => (
+        <span className="whitespace-nowrap">{formatDateTime(row.loginTime)}</span>
+      ),
+    },
     {
       key: "lastActiveTime",
       title: "最后活跃时间",
       width: "180px",
-      render: (row) => row.lastActiveTime ?? "—",
+      render: (row) => (
+        <span className="whitespace-nowrap">{formatDateTime(row.lastActiveTime)}</span>
+      ),
     },
     {
       key: "actions",
@@ -162,7 +172,7 @@ export default function OnlineUserPage() {
           <Search size={14} />
           搜索
         </Button>
-        <Button variant="ghost" size="sm" onClick={reset}>
+        <Button variant="outline" size="sm" onClick={reset}>
           <RefreshCw size={14} />
           重置
         </Button>

@@ -271,7 +271,7 @@ export default function RolePage() {
           搜索
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={() => {
             setKeyword("");

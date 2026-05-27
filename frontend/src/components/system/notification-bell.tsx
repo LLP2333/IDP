@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { getUnreadCount, listMessage, readMessage } from "~/lib/api/message";
 import type { MessageResp } from "~/lib/api/types";
-import { cn } from "~/lib/utils";
+import { cn, formatDateTime } from "~/lib/utils";
 
 /**
  * 顶栏未读消息铃铛。
@@ -100,7 +100,7 @@ export function NotificationBell() {
                 >
                   <span className="line-clamp-1 font-medium text-zinc-800">{m.title}</span>
                   <span className="line-clamp-2 text-xs text-zinc-500">{m.content}</span>
-                  <span className="text-[11px] text-zinc-400">{m.createdAt}</span>
+                  <span className="text-[11px] text-zinc-400">{formatDateTime(m.createdAt)}</span>
                 </button>
               ))
             )}

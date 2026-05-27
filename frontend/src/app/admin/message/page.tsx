@@ -14,6 +14,7 @@ import { Select } from "~/components/ui/select";
 import { HttpError } from "~/lib/api/http";
 import { listMessage, readAllMessage, readMessage } from "~/lib/api/message";
 import type { MessageResp } from "~/lib/api/types";
+import { formatDateTime } from "~/lib/utils";
 
 /**
  * 消息中心：当前登录用户的收件箱。
@@ -103,6 +104,9 @@ export default function MessagePage() {
       key: "createdAt",
       title: "时间",
       width: "180px",
+      render: (row) => (
+        <span className="whitespace-nowrap">{formatDateTime(row.createdAt)}</span>
+      ),
     },
     {
       key: "actions",
@@ -171,7 +175,7 @@ export default function MessagePage() {
           搜索
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={() => {
             setTitleInput("");

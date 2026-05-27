@@ -3,6 +3,7 @@
 import { Button } from "~/components/ui/button";
 import { Modal } from "~/components/ui/modal";
 import type { FileResp } from "~/lib/api/types";
+import { formatDateTime } from "~/lib/utils";
 
 import { formatBytes } from "./file-aside-statistics";
 import { FileIcon } from "./file-icon";
@@ -55,8 +56,10 @@ export function FileDetailModal({ target, onClose }: FileDetailModalProps) {
               {target.url ? <DetailRow label="访问链接" value={target.url} mono breakAll /> : null}
             </>
           ) : null}
-          <DetailRow label="创建时间" value={target.createdAt} />
-          {target.updatedAt ? <DetailRow label="更新时间" value={target.updatedAt} /> : null}
+          <DetailRow label="创建时间" value={formatDateTime(target.createdAt)} />
+          {target.updatedAt ? (
+            <DetailRow label="更新时间" value={formatDateTime(target.updatedAt)} />
+          ) : null}
         </div>
       </div>
     </Modal>

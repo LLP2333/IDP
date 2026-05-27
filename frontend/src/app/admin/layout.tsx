@@ -33,7 +33,7 @@ import { toast } from "sonner";
 import { NoticePopup } from "~/components/system/notice-popup";
 import { NotificationBell } from "~/components/system/notification-bell";
 import { SiteFooter } from "~/components/site-footer";
-import { Button } from "~/components/ui/button";
+import { Dropdown } from "~/components/ui/dropdown";
 import { getUserInfo, logout } from "~/lib/api/auth";
 import { getUserRoute } from "~/lib/api/menu";
 import type { MenuResp } from "~/lib/api/types";
@@ -99,7 +99,7 @@ function normalizeTree(tree: MenuResp[]): MenuResp[] {
  * - 路由级登录守卫：未登录则跳转 `/login`；
  * - 首次进入时调用 `/auth/user/info` 拉取并缓存当前用户信息；
  * - 调用 `/auth/user/route` 获取动态侧边栏菜单（admin 直通全部菜单，普通用户按角色聚合）；
- * - 顶栏提供登出按钮，登出后清空登录态并跳转登录页。
+ * - 顶栏右侧用户区悬浮展开下拉（个人中心 / 消息中心 / 退出登录）。
  */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -352,32 +352,52 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <header className="flex h-14 shrink-0 items-center justify-end border-b border-zinc-200 bg-white px-6">
           <div className="flex items-center gap-3 text-sm">
             <NotificationBell />
-            <Link
-              href="/admin/profile"
-              className="flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-zinc-100"
-              title="进入个人中心"
-            >
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-700">
-                {(user?.nickname ?? user?.username ?? "?").trim().slice(0, 1).toUpperCase()}
-              </div>
-              <div className="flex flex-col items-start leading-tight">
-                <span className="font-medium text-zinc-800">
-                  {user?.nickname ?? user?.username ?? "未知用户"}
-                </span>
-                <span className="text-xs text-zinc-400">
-                  {user?.roles?.join(" / ") ?? "—"}
-                </span>
-              </div>
-            </Link>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="!text-zinc-500 hover:!text-zinc-800"
-            >
-              <LogOut size={14} />
-              登出
-            </Button>
+            <Dropdown
+              triggerOn="hover"
+              align="end"
+              trigger={
+                <div
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-zinc-100"
+                  data-testid="user-menu-trigger"
+                >
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-700">
+                    {(user?.nickname ?? user?.username ?? "?").trim().slice(0, 1).toUpperCase()}
+                  </div>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="font-medium text-zinc-800">
+                      {user?.nickname ?? user?.username ?? "未知用户"}
+                    </span>
+                    <span className="text-xs text-zinc-400">
+                      {user?.roles?.join(" / ") ?? "—"}
+                    </span>
+                  </div>
+                </div>
+              }
+              items={[
+                {
+                  key: "profile",
+                  icon: <CircleUser size={14} />,
+                  label: "个人中心",
+                  onSelect: () => router.push("/admin/profile"),
+                },
+                {
+                  key: "message",
+                  icon: <Bell size={14} />,
+                  label: "消息中心",
+                  onSelect: () => router.push("/admin/message"),
+                },
+                { key: "divider", label: "", divider: true },
+                {
+                  key: "logout",
+                  icon: <LogOut size={14} />,
+                  label: "退出登录",
+                  danger: true,
+                  onSelect: () => {
+                    void handleLogout();
+                  },
+                },
+              ]}
+            />
           </div>
         </header>
         <main className="min-h-0 flex-1 overflow-auto p-6">{children}</main>

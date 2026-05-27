@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Dropdown } from "./dropdown";
@@ -33,5 +33,34 @@ describe("Dropdown", () => {
     );
     fireEvent.click(getByText("menu"));
     expect(getByRole("separator")).toBeTruthy();
+  });
+
+  it("triggerOn=hover 时鼠标移入即展开，移出后延迟收起", () => {
+    vi.useFakeTimers();
+    try {
+      const { container, queryByText } = render(
+        <Dropdown
+          triggerOn="hover"
+          trigger={<button type="button">menu</button>}
+          items={[{ key: "a", label: "选项A" }]}
+        />,
+      );
+      const wrapper = container.firstElementChild as HTMLElement;
+      expect(queryByText("选项A")).toBeNull();
+
+      fireEvent.mouseEnter(wrapper);
+      expect(queryByText("选项A")).not.toBeNull();
+
+      fireEvent.mouseLeave(wrapper);
+      expect(queryByText("选项A")).not.toBeNull();
+
+      // setTimeout 触发的 setState 必须包在 act 里，让 React 把更新应用到 DOM
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(queryByText("选项A")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
