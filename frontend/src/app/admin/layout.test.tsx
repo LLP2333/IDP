@@ -146,4 +146,62 @@ describe("AdminLayout 滚动容器结构", () => {
     expect(nav!.className).toContain("overflow-y-auto");
     expect(nav!.className).toContain("min-h-0");
   });
+
+  it("侧边栏固定入口位于动态菜单前，动态菜单按 sort 升序", async () => {
+    (getUserRoute as unknown as Mock).mockResolvedValue([
+      {
+        id: 1,
+        title: "系统管理",
+        parentId: 0,
+        type: 1,
+        path: "/system",
+        name: "system",
+        component: "Layout",
+        redirect: null,
+        icon: "settings",
+        isExternal: false,
+        isCache: false,
+        isHidden: false,
+        permission: null,
+        sort: 200,
+        status: 1,
+        isSystem: true,
+        description: null,
+        createdAt: "2026-05-27T00:00:00",
+        updatedAt: null,
+        children: [],
+      },
+      {
+        id: 2,
+        title: "系统监控",
+        parentId: 0,
+        type: 1,
+        path: "/monitor",
+        name: "Monitor",
+        component: "Layout",
+        redirect: null,
+        icon: "computer",
+        isExternal: false,
+        isCache: false,
+        isHidden: false,
+        permission: null,
+        sort: 100,
+        status: 1,
+        isSystem: true,
+        description: null,
+        createdAt: "2026-05-27T00:00:00",
+        updatedAt: null,
+        children: [],
+      },
+    ]);
+
+    renderLayout();
+    const overview = await screen.findByRole("link", { name: /概览/ });
+    await screen.findByText("系统管理");
+    const navText = overview.closest("nav")!.textContent ?? "";
+
+    expect(navText.indexOf("概览")).toBeLessThan(navText.indexOf("个人中心"));
+    expect(navText.indexOf("个人中心")).toBeLessThan(navText.indexOf("系统监控"));
+    expect(navText.indexOf("系统监控")).toBeLessThan(navText.indexOf("系统管理"));
+  });
 });

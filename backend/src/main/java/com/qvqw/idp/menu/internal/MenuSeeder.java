@@ -50,7 +50,7 @@ public class MenuSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         Menu systemDir = ensureDir("系统管理", "/system", "system", "Layout", "settings",
-                100, "系统管理一级目录");
+                200, "系统管理一级目录");
         Menu userMenu = ensureMenu("用户管理", systemDir.getId(),
                 "/admin/system/user", "User", "system/user/index", "users",
                 110, "用户管理菜单");
@@ -62,18 +62,18 @@ public class MenuSeeder implements CommandLineRunner {
                 130, "菜单管理菜单");
         Menu siteMenu = ensureMenu("网站配置", systemDir.getId(),
                 "/admin/system/config", "SiteConfig", "system/config/index", "settings",
-                140, "网站配置（含站点 / 安全 / 登录三组参数）");
+                170, "网站配置（含站点 / 安全 / 登录三组参数）");
         Menu dictMenu = ensureMenu("字典管理", systemDir.getId(),
                 "/admin/system/dict", "Dict", "system/dict/index", "book",
-                150, "字典管理菜单");
+                160, "字典管理菜单");
         Menu noticeMenu = ensureMenu("通知公告", systemDir.getId(),
                 "/admin/system/notice", "Notice", "system/notice/index", "bell",
-                160, "通知公告菜单");
+                140, "通知公告菜单");
         Menu fileMenu = ensureMenu("文件管理", systemDir.getId(),
                 "/admin/system/file", "File", "system/file/index", "file",
-                170, "文件管理菜单（含回收站、分片上传）");
+                150, "文件管理菜单（含回收站、分片上传）");
         Menu monitorDir = ensureDir("系统监控", "/monitor", "Monitor", "Layout", "computer",
-                200, "系统监控一级目录");
+                100, "系统监控一级目录");
         Menu onlineMenu = ensureMenu("在线用户", monitorDir.getId(),
                 "/admin/monitor/online", "MonitorOnline", "monitor/online/index", "user",
                 210, "在线用户菜单");
@@ -175,6 +175,7 @@ public class MenuSeeder implements CommandLineRunner {
                         && Integer.valueOf(TYPE_DIR).equals(m.getType())
                         && title.equals(m.getTitle()))
                 .findFirst()
+                .map(m -> syncSystemMenu(m, path, name, component, icon, sort, description))
                 .orElseGet(() -> {
                     Menu m = new Menu();
                     m.setTitle(title);
@@ -203,6 +204,7 @@ public class MenuSeeder implements CommandLineRunner {
                         && Integer.valueOf(TYPE_MENU).equals(m.getType())
                         && title.equals(m.getTitle()))
                 .findFirst()
+                .map(m -> syncSystemMenu(m, path, name, component, icon, sort, description))
                 .orElseGet(() -> {
                     Menu m = new Menu();
                     m.setTitle(title);
@@ -221,6 +223,40 @@ public class MenuSeeder implements CommandLineRunner {
                     m.setDescription(description);
                     return menuRepository.save(m);
                 });
+    }
+
+    /** 同步既有系统内置菜单元数据，确保调整排序后老库重启也能生效。 */
+    private Menu syncSystemMenu(Menu m, String path, String name, String component, String icon,
+                                int sort, String description) {
+        if (!Boolean.TRUE.equals(m.getIsSystem())) {
+            return m;
+        }
+        boolean changed = false;
+        if (!java.util.Objects.equals(m.getPath(), path)) {
+            m.setPath(path);
+            changed = true;
+        }
+        if (!java.util.Objects.equals(m.getName(), name)) {
+            m.setName(name);
+            changed = true;
+        }
+        if (!java.util.Objects.equals(m.getComponent(), component)) {
+            m.setComponent(component);
+            changed = true;
+        }
+        if (!java.util.Objects.equals(m.getIcon(), icon)) {
+            m.setIcon(icon);
+            changed = true;
+        }
+        if (!java.util.Objects.equals(m.getSort(), sort)) {
+            m.setSort(sort);
+            changed = true;
+        }
+        if (!java.util.Objects.equals(m.getDescription(), description)) {
+            m.setDescription(description);
+            changed = true;
+        }
+        return changed ? menuRepository.save(m) : m;
     }
 
     /**

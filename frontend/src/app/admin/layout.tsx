@@ -328,11 +328,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <LayoutDashboard size={16} />
             概览
           </Link>
-          {routeQuery.isLoading ? (
-            <div className="px-3 py-2 text-xs text-zinc-400">加载菜单中…</div>
-          ) : (
-            navTree.map((n) => renderNavNode(n, 0))
-          )}
           <Link
             href="/admin/profile"
             className={cn(
@@ -345,6 +340,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <CircleUser size={16} />
             个人中心
           </Link>
+          {routeQuery.isLoading ? (
+            <div className="px-3 py-2 text-xs text-zinc-400">加载菜单中…</div>
+          ) : (
+            navTree.map((n) => renderNavNode(n, 0))
+          )}
         </nav>
       </aside>
 
