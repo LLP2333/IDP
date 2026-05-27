@@ -25,7 +25,7 @@ const geist = Geist({
  *
  * 注入全局依赖：
  * - {@link QueryProvider}：TanStack Query 客户端；
- * - `Toaster`：sonner 的全局 toast 容器。
+ * - `Toaster`：sonner 的全局 toast 容器，统一顶部居中显示、1.5 秒自动消失。
  */
 export default function RootLayout({
   children,
@@ -34,7 +34,7 @@ export default function RootLayout({
     <html lang="zh-CN" className={geist.variable}>
       <body className="bg-background text-foreground min-h-screen antialiased">
         <QueryProvider>{children}</QueryProvider>
-        <Toaster richColors position="top-right" />
+        <Toaster richColors position="top-center" duration={1500} />
       </body>
     </html>
   );
